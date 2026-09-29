@@ -1,0 +1,328 @@
+{
+  "entities": {
+    "Customer": {
+      "title": "Customer",
+      "description": "Registered customer account with jar ledger and outstanding balance tracking",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for customer",
+          "maxLength": 64
+        },
+        "name": {
+          "type": "string",
+          "description": "Customer or commercial entity name",
+          "maxLength": 128
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number",
+          "maxLength": 20
+        },
+        "address": {
+          "type": "string",
+          "description": "Delivery address or society flat details",
+          "maxLength": 256
+        },
+        "customerType": {
+          "type": "string",
+          "description": "Account category type",
+          "enum": ["RESIDENTIAL", "COMMERCIAL"]
+        },
+        "route": {
+          "type": "string",
+          "description": "Assigned distribution route",
+          "maxLength": 64
+        },
+        "jarsHolding": {
+          "type": "number",
+          "description": "Current number of empty/filled bottles in customer possession"
+        },
+        "dueAmount": {
+          "type": "number",
+          "description": "Outstanding balance owed by customer"
+        },
+        "depositPaid": {
+          "type": "number",
+          "description": "Security deposit held for jars"
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Creation epoch millisecond timestamp"
+        }
+      },
+      "required": ["id", "name", "customerType", "jarsHolding", "dueAmount", "depositPaid", "createdAt"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "Warehouse stock inventory tracked by water jar sku type",
+      "type": "object",
+      "properties": {
+        "itemType": {
+          "type": "string",
+          "description": "Water product sku identifier",
+          "maxLength": 64
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Human-friendly product label",
+          "maxLength": 128
+        },
+        "availableStock": {
+          "type": "number",
+          "description": "Filled jars available in warehouse ready for dispatch"
+        },
+        "borrowedStock": {
+          "type": "number",
+          "description": "Jars currently deployed in customer field"
+        },
+        "totalCapacity": {
+          "type": "number",
+          "description": "Total jar asset pool owned by business"
+        },
+        "unitPrice": {
+          "type": "number",
+          "description": "Refill price per jar"
+        },
+        "depositAmount": {
+          "type": "number",
+          "description": "Standard deposit per jar"
+        },
+        "lastUpdated": {
+          "type": "number",
+          "description": "Last inventory change epoch millisecond timestamp"
+        }
+      },
+      "required": ["itemType", "displayName", "availableStock", "borrowedStock", "unitPrice", "lastUpdated"]
+    },
+    "DeliveryLog": {
+      "title": "DeliveryLog",
+      "description": "Completed delivery record logging jar dispatch and collection",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique delivery record uuid",
+          "maxLength": 64
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Recipient customer ID",
+          "maxLength": 64
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Name of customer at delivery time",
+          "maxLength": 128
+        },
+        "workerName": {
+          "type": "string",
+          "description": "Delivery executive or vehicle identifier",
+          "maxLength": 64
+        },
+        "jarsDelivered": {
+          "type": "number",
+          "description": "Number of filled jars handed over"
+        },
+        "emptyJarsCollected": {
+          "type": "number",
+          "description": "Number of empty jars returned to van"
+        },
+        "amountCollected": {
+          "type": "number",
+          "description": "Cash/UPI payment collected on the spot"
+        },
+        "paymentMode": {
+          "type": "string",
+          "description": "Settlement payment mode",
+          "enum": ["CASH", "UPI", "CREDIT"]
+        },
+        "itemType": {
+          "type": "string",
+          "description": "Product type delivered",
+          "maxLength": 64
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Delivery completion epoch millisecond timestamp"
+        }
+      },
+      "required": ["id", "customerId", "customerName", "jarsDelivered", "emptyJarsCollected", "amountCollected", "paymentMode", "timestamp"]
+    },
+    "TransactionRecord": {
+      "title": "TransactionRecord",
+      "description": "Financial ledger record of payments and due clearances",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique transaction uuid",
+          "maxLength": 64
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Customer associated with transaction",
+          "maxLength": 64
+        },
+        "customerName": {
+          "type": "string",
+          "description": "Customer name",
+          "maxLength": 128
+        },
+        "type": {
+          "type": "string",
+          "description": "Transaction category",
+          "enum": ["REFILL_PAYMENT", "DUE_CLEARANCE", "SECURITY_DEPOSIT"]
+        },
+        "amount": {
+          "type": "number",
+          "description": "Monetary amount in INR"
+        },
+        "paymentMode": {
+          "type": "string",
+          "description": "Payment channel",
+          "enum": ["CASH", "UPI", "BANK_TRANSFER"]
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Transaction epoch millisecond timestamp"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes or remarks",
+          "maxLength": 256
+        }
+      },
+      "required": ["id", "customerId", "type", "amount", "paymentMode", "timestamp"]
+    },
+    "BusinessAccount": {
+      "title": "BusinessAccount",
+      "description": "Registered business profile and supply configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 128 },
+        "ownerName": { "type": "string", "maxLength": 128 },
+        "ownerPhone": { "type": "string", "maxLength": 32 },
+        "ownerEmail": { "type": "string", "maxLength": 128 },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "maxLength": 128 },
+        "address": { "type": "string", "maxLength": 256 },
+        "city": { "type": "string", "maxLength": 128 },
+        "gstin": { "type": "string", "maxLength": 32 },
+        "defaultJarRate": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "workerPhones": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["id", "name", "ownerName", "ownerPhone", "createdAt"]
+    },
+    "BusinessWorker": {
+      "title": "BusinessWorker",
+      "description": "Worker employment profile under a business entity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "businessId": { "type": "string", "maxLength": 128 },
+        "businessName": { "type": "string", "maxLength": 128 },
+        "workerName": { "type": "string", "maxLength": 128 },
+        "workerPhone": { "type": "string", "maxLength": 32 },
+        "role": { "type": "string", "enum": ["DRIVER", "DISPATCH_STAFF", "MANAGER"] },
+        "assignedRoute": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["ACTIVE", "INVITED"] },
+        "addedAt": { "type": "number" },
+        "addedByPhone": { "type": "string", "maxLength": 32 },
+        "ownerName": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "businessId", "workerName", "workerPhone", "role", "addedAt"]
+    },
+    "WorkerAssignment": {
+      "title": "WorkerAssignment",
+      "description": "Top-level index mapping worker phone numbers to business employment records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "workerPhone": { "type": "string", "maxLength": 32 },
+        "businessId": { "type": "string", "maxLength": 128 },
+        "businessName": { "type": "string", "maxLength": 128 },
+        "workerName": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "enum": ["DRIVER", "DISPATCH_STAFF", "MANAGER"] },
+        "assignedRoute": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["ACTIVE", "INVITED"] },
+        "addedAt": { "type": "number" },
+        "addedByPhone": { "type": "string", "maxLength": 32 },
+        "ownerName": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "workerPhone", "businessId", "businessName", "workerName", "role", "addedAt"]
+    },
+    "UserIdentityLookup": {
+      "title": "UserIdentityLookup",
+      "description": "Cross-device mapping from phone number or email to associated business IDs and roles (OWNER/WORKER)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "identifier": { "type": "string", "maxLength": 128 },
+        "identifierType": { "type": "string", "enum": ["PHONE", "EMAIL"] },
+        "businesses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "businessId": { "type": "string" },
+              "businessName": { "type": "string" },
+              "role": { "type": "string", "enum": ["OWNER", "WORKER"] },
+              "ownerName": { "type": "string" },
+              "ownerPhone": { "type": "string" },
+              "workerId": { "type": "string" },
+              "workerName": { "type": "string" },
+              "assignedRoute": { "type": "string" },
+              "status": { "type": "string" },
+              "updatedAt": { "type": "number" }
+            }
+          }
+        },
+        "activeBusinessId": { "type": "string" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "identifier", "identifierType", "businesses", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/user_profiles/{identifier}": {
+      "schema": "UserIdentityLookup",
+      "description": "Phone number and email identity map to business IDs and roles"
+    },
+    "/businesses/{businessId}": {
+      "schema": "BusinessAccount",
+      "description": "Registered business document and configuration"
+    },
+    "/businesses/{businessId}/workers/{workerId}": {
+      "schema": "BusinessWorker",
+      "description": "Workers subcollection for a business"
+    },
+    "/worker_assignments/{assignmentId}": {
+      "schema": "WorkerAssignment",
+      "description": "Index of worker phone assignments"
+    },
+    "/businesses/{businessId}/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Customer accounts and jar ledger under a specific business entity"
+    },
+    "/businesses/{businessId}/inventory/{itemType}": {
+      "schema": "InventoryItem",
+      "description": "Inventory stock items managed by warehouse"
+    },
+    "/businesses/{businessId}/deliveries/{deliveryId}": {
+      "schema": "DeliveryLog",
+      "description": "Delivery dispatch logs recorded by field staff"
+    },
+    "/businesses/{businessId}/transactions/{transactionId}": {
+      "schema": "TransactionRecord",
+      "description": "Financial receipts and due settlements"
+    }
+  }
+}

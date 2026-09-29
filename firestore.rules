@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Businesses Collection & Subcollections ---
+    match /businesses/{businessId} {
+      allow read, write: if true;
+
+      // Customers Subcollection (Accessible to Business Owners & Assigned Workers/Drivers)
+      match /customers/{customerId} {
+        allow read, write: if true;
+      }
+
+      // Warehouse Inventory Subcollection
+      match /inventory/{itemType} {
+        allow read, write: if true;
+      }
+
+      // Deliveries Dispatch Subcollection
+      match /deliveries/{deliveryId} {
+        allow read, write: if true;
+      }
+
+      // Financial Transactions Subcollection
+      match /transactions/{transactionId} {
+        allow read, write: if true;
+      }
+
+      // Orders Subcollection
+      match /orders/{orderId} {
+        allow read, write: if true;
+      }
+
+      // Workers Subcollection
+      match /workers/{workerId} {
+        allow read, write: if true;
+      }
+    }
+
+    // --- Worker Assignments Collection (Top-Level Multi-Business Worker Index) ---
+    match /worker_assignments/{assignmentId} {
+      allow read, write: if true;
+    }
+
+    // --- User Profiles Collection ---
+    match /user_profiles/{identifier} {
+      allow read, write: if true;
+    }
+
+    // --- Collection Group Queries for Cross-Business Worker & Dispatch Sync ---
+    match /{path=**}/workers/{workerId} {
+      allow read, write: if true;
+    }
+
+    match /{path=**}/worker_assignments/{assignmentId} {
+      allow read, write: if true;
+    }
+
+    match /{path=**}/customers/{customerId} {
+      allow read, write: if true;
+    }
+
+    match /{path=**}/deliveries/{deliveryId} {
+      allow read, write: if true;
+    }
+
+    match /{path=**}/orders/{orderId} {
+      allow read, write: if true;
+    }
+  }
+}

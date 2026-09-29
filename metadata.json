@@ -1,0 +1,6 @@
+{
+  "name": "Water Distribution & Inventory",
+  "description": "Companion web application for Water Distribution & Inventory Management with live Firestore synchronization, jar stock tracking, customer accounts, atomic delivery dispatch, and 30-day Recharts analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
