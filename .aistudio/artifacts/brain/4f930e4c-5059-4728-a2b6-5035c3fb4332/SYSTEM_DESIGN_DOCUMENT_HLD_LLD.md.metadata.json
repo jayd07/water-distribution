@@ -1,0 +1,5 @@
+{
+  "summary": "Comprehensive High-Level Design (HLD) and Low-Level Design (LLD) architectural documentation for AquaPure Springs Water Distribution ERP, covering multi-tenancy, RBAC, dispatch ledger engine, live UPI QR integration, and offline-first cloud sync.",
+  "updatedAt": "2026-09-29T16:38:42.090777673Z",
+  "userFacing": true
+}

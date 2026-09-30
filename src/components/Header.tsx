@@ -756,7 +756,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                   {/* PWA Install */}
                   <div className="pt-1 mt-1 border-t border-slate-100">
-                    <PWAInstallButton className="w-full justify-start text-xs" />
+                    <PWAInstallButton variant="menu-item" />
                   </div>
 
                   {/* Authentication (Sign In / Logout) */}

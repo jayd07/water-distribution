@@ -36,8 +36,8 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
   // By default for normal transactions: add 1 jar, return 1 jar
   const [jarsDelivered, setJarsDelivered] = useState<number>(1);
   const [emptyJarsCollected, setEmptyJarsCollected] = useState<number>(1);
-  const [amountCollected, setAmountCollected] = useState<number>(35);
-  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CREDIT'>('UPI');
+  const [amountCollected, setAmountCollected] = useState<number>(0);
+  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CREDIT'>('CREDIT');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -65,7 +65,8 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
       setWorkerName(fallbackWorker);
     }
 
-    // Set initial preset mode
+    // Set initial preset mode with CREDIT default
+    setPaymentMode('CREDIT');
     if (initialMode === 'RETURN_ONLY') {
       setJarsDelivered(0);
       setEmptyJarsCollected(1);
@@ -73,14 +74,12 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
     } else if (initialMode === 'DROP_ONLY') {
       setJarsDelivered(1);
       setEmptyJarsCollected(0);
-      const price = (inventory[0] && Number(inventory[0].unitPrice)) || 35;
-      setAmountCollected(price);
+      setAmountCollected(0);
     } else {
-      // STANDARD: 1 delivered, 1 returned
+      // STANDARD: 1 delivered, 1 returned, on credit default
       setJarsDelivered(1);
       setEmptyJarsCollected(1);
-      const price = (inventory[0] && Number(inventory[0].unitPrice)) || 35;
-      setAmountCollected(price);
+      setAmountCollected(0);
     }
   }, [isOpen, defaultCustomerId, customers, inventory, initialMode, defaultWorkerName]);
 
@@ -335,8 +334,8 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
             </select>
             {currentCustomer && (
               <div className="mt-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between text-xs text-slate-600">
-                <span>Current Jars with Customer: <strong className="text-slate-900 font-bold">{currentCustomer.jarsHolding || 0} jars</strong></span>
-                <span>Outstanding Dues: <strong className={currentCustomer.dueAmount > 0 ? 'text-amber-700 font-bold' : 'text-slate-900 font-bold'}>₹{currentCustomer.dueAmount || 0}</strong></span>
+                <span>Holding Jars: <strong className="text-slate-900 font-bold">{currentCustomer.jarsHolding || 0} jars</strong></span>
+                <span>Payment Dues: <strong className={currentCustomer.dueAmount > 0 ? 'text-amber-700 font-bold' : 'text-slate-900 font-bold'}>₹{currentCustomer.dueAmount || 0}</strong></span>
               </div>
             )}
           </div>
@@ -535,7 +534,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
                 ? `(-${currentHolding - calculatedNewHolding} returned)` 
                 : calculatedNewHolding > currentHolding 
                 ? `(+${calculatedNewHolding - currentHolding} new held)` 
-                : 'Balanced (1:1 exchange)'}
+                : ''}
             </span>
           </div>
 
@@ -545,7 +544,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
               Payment Settlement Method
             </label>
             <div className="grid grid-cols-3 gap-2">
-              {(['UPI', 'CASH', 'CREDIT'] as const).map((mode) => (
+              {(['CREDIT', 'UPI', 'CASH'] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"
@@ -580,7 +579,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
                         <span>Instant UPI Payment</span>
                       </div>
                       <p className="text-[11px] text-slate-500">
-                        Customer can scan via GPay, PhonePe, Paytm, BHIM.
+                        Scan via GPay, PhonePe, Paytm, BHIM.
                       </p>
                       <div className="font-mono text-[11px] font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 max-w-fit mx-auto sm:mx-0">
                         {currentBiz.upiId.trim()}
