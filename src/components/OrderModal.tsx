@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Phone, User, Package, DollarSign, ShieldCheck, MapPin, Truck, AlertCircle } from 'lucide-react';
+import { X, Calendar, Phone, User, Package, DollarSign, ShieldCheck, MapPin, Truck, AlertCircle, Check } from 'lucide-react';
 import { OrderBooking, Customer } from '../types';
+import { Button } from './ui/Button';
+import { triggerHaptic } from '../utils/haptics';
 
 export interface OrderModalProps {
   isOpen: boolean;
@@ -157,6 +159,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
         assignedDriver,
         notes: notes.trim()
       }, editingOrder?.id);
+      triggerHaptic('order');
       onClose();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to save booking order');
@@ -458,21 +461,25 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
           {/* Action buttons */}
           <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="md"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              disabled={isSubmitting}
+              variant="primary"
+              size="md"
+              glow
               id="save-order-submit-btn"
-              className="px-5 py-2 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 rounded-xl shadow-xs transition-colors cursor-pointer"
+              isLoading={isSubmitting}
+              leftIcon={<Check className="w-4 h-4 stroke-[2.5]" />}
             >
-              {isSubmitting ? 'Saving...' : (editingOrder ? 'Update Order' : 'Confirm & Book Order')}
-            </button>
+              {editingOrder ? 'Update Order' : 'Confirm & Book Order'}
+            </Button>
           </div>
 
         </form>

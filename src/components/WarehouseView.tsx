@@ -15,6 +15,7 @@ import {
   TrendingDown,
   Sparkles
 } from 'lucide-react';
+import { CardSpotlight } from './ui/CardSpotlight';
 
 interface WarehouseViewProps {
   inventory: InventoryItem[];
@@ -205,9 +206,10 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
             const isAdjusting = adjustingStockMap[item.itemType] || false;
 
             return (
-              <div
+              <CardSpotlight
                 key={item.itemType}
-                className="bg-white rounded-2xl border border-slate-200/90 p-4.5 shadow-2xs hover:border-slate-300 transition-all flex flex-col justify-between space-y-4 group"
+                spotlightColor="rgba(2, 132, 199, 0.1)"
+                className="p-4.5 flex flex-col justify-between space-y-4 group"
               >
                 <div>
                   {/* Card Header with Title & Price + Edit Button */}
@@ -222,7 +224,7 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                     </div>
                     
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-xs font-bold px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-100 rounded-md">
+                      <span className="text-xs font-bold px-2 py-0.5 bg-sky-50 text-sky-700 border border-sky-100 rounded-md font-mono tabular-nums">
                         ₹{item.unitPrice || 35}/jar
                       </span>
                       {userRole !== 'WORKER' && (
@@ -238,7 +240,7 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                   </div>
 
                   {/* Stock Levels & Quick Stepper */}
-                  <div className="mt-3.5 p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                  <div className="mt-3.5 p-3 bg-slate-50/80 rounded-xl border border-slate-100 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-slate-600">Ready in Warehouse:</span>
                       <div className="flex items-center gap-2">
@@ -254,7 +256,7 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                           </button>
                         )}
                         
-                        <strong className="text-sm font-extrabold text-slate-900 min-w-[32px] text-center">
+                        <strong className="text-sm font-extrabold text-slate-900 min-w-[32px] text-center font-mono tabular-nums">
                           {avail}
                         </strong>
 
@@ -274,7 +276,7 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
 
                     <div className="flex justify-between text-xs text-slate-500">
                       <span>With Customer Accounts:</span>
-                      <strong className="text-slate-800">{borrowed} jars</strong>
+                      <strong className="text-slate-800 font-mono tabular-nums">{borrowed} jars</strong>
                     </div>
 
                     {/* Progress Bar */}
@@ -288,7 +290,7 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                         style={{ width: `${100 - availPct}%` }}
                       />
                     </div>
-                    <div className="flex justify-between text-[10px] text-slate-400">
+                    <div className="flex justify-between text-[10px] text-slate-400 font-mono tabular-nums">
                       <span>{availPct}% ready stock</span>
                       <span>Total Fleet: {capacity} jars</span>
                     </div>
@@ -298,11 +300,11 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2 bg-slate-50/70 rounded-lg border border-slate-100">
                       <span className="text-slate-400 text-[10px] block">Jar Deposit</span>
-                      <strong className="text-slate-800">₹{item.depositAmount || 150}</strong>
+                      <strong className="text-slate-800 font-mono tabular-nums">₹{item.depositAmount || 150}</strong>
                     </div>
                     <div className="p-2 bg-slate-50/70 rounded-lg border border-slate-100">
                       <span className="text-slate-400 text-[10px] block">Unit Price</span>
-                      <strong className="text-sky-700">₹{item.unitPrice || 35} / refill</strong>
+                      <strong className="text-sky-700 font-mono tabular-nums">₹{item.unitPrice || 35} / refill</strong>
                     </div>
                   </div>
                 </div>
@@ -325,7 +327,7 @@ export const WarehouseView: React.FC<WarehouseViewProps> = ({
                     <Edit2 className="w-3.5 h-3.5 text-slate-500" />
                   </button>
                 </div>
-              </div>
+              </CardSpotlight>
             );
           })}
         </div>

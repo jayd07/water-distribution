@@ -939,9 +939,9 @@ export const GPayBusinessModal: React.FC<GPayBusinessModalProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    {matchedOwned.map(biz => (
+                    {matchedOwned.map((biz, idx) => (
                       <div
-                        key={biz.id}
+                        key={`owned_${biz.id}_${idx}`}
                         onClick={() => {
                           const session: UserSessionProfile = {
                             phoneNumber: verifiedPhone || biz.ownerPhone,
@@ -1043,9 +1043,9 @@ export const GPayBusinessModal: React.FC<GPayBusinessModalProps> = ({
                   </div>
 
                   <div className="space-y-2">
-                    {matchedWorker.map(({ business, workerRecord }) => (
+                    {matchedWorker.map(({ business, workerRecord }, idx) => (
                       <div
-                        key={workerRecord.id}
+                        key={`worker_assign_${workerRecord.id || 'w'}_${business.id}_${idx}`}
                         onClick={() => {
                           const session: UserSessionProfile = {
                             phoneNumber: verifiedPhone || workerRecord.workerPhone,

@@ -4,6 +4,8 @@ import { recordDueSettlement } from '../services/deliveryService';
 import { getActiveBusiness, getBusinessById } from '../services/businessService';
 import { generateUpiUri, generateUpiQrDataUrl } from '../utils/upiUtils';
 import { X, CreditCard, IndianRupee, Check, AlertCircle, QrCode, ExternalLink, Copy, Building2 } from 'lucide-react';
+import { Button } from './ui/Button';
+import { useLanguage } from '../context/LanguageContext';
 
 interface SettleDueModalProps {
   isOpen: boolean;
@@ -22,6 +24,7 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
   business,
   onSettled
 }) => {
+  const { t, isGujarati } = useLanguage();
   const [amount, setAmount] = useState<number>(() => {
     const due = Number(customer?.dueAmount) || 0;
     return due > 0 ? due : 35;
@@ -136,9 +139,11 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
           <div>
             <h3 className="text-sm font-bold text-slate-900">
-              {currentDue > 0 ? 'Settle Customer Due' : 'Record Transaction / Payment'}
+              {currentDue > 0 ? (isGujarati ? 'ગ્રાહકની બાકી રકમ જમા' : 'Settle Customer Due') : (isGujarati ? 'ચુકવણી નોંધણી' : 'Record Transaction / Payment')}
             </h3>
-            <p className="text-xs text-slate-500">Record cash, UPI or bank collection</p>
+            <p className="text-xs text-slate-500">
+              {isGujarati ? 'રોકડ, યુપીઆઈ અથવા બેંક દ્વારા રકમ સ્વીકારો' : 'Record cash, UPI or bank collection'}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -158,18 +163,18 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
 
           <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl">
             <span className="text-[11px] font-semibold text-amber-800 uppercase block">
-              Customer Account
+              {isGujarati ? 'ગ્રાહક ખાતું' : 'Customer Account'}
             </span>
             <h4 className="text-sm font-bold text-slate-900">{customer.name}</h4>
             <div className="flex items-center justify-between mt-2 pt-2 border-t border-amber-200/60 text-xs">
-              <span className="text-slate-600">Total Pending:</span>
+              <span className="text-slate-600">{isGujarati ? 'કુલ બાકી:' : 'Total Pending:'}</span>
               <strong className="text-amber-700 font-extrabold text-sm">₹{currentDue}</strong>
             </div>
           </div>
 
           <div>
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-              Payment Amount (₹)
+              {isGujarati ? 'જમા રકમ (₹)' : 'Payment Amount (₹)'}
             </label>
             <div className="relative">
               <IndianRupee className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -186,7 +191,7 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
 
           <div>
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
-              Payment Method
+              {t.worker.paymentMode}
             </label>
             <div className="grid grid-cols-3 gap-2">
               {(['UPI', 'CASH', 'BANK_TRANSFER'] as const).map((mode) => (
@@ -200,7 +205,7 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
                       : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
-                  {mode === 'BANK_TRANSFER' ? 'NEFT/Bank' : mode}
+                  {mode === 'BANK_TRANSFER' ? (isGujarati ? 'બેંક (Bank)' : 'NEFT/Bank') : mode === 'CASH' ? (isGujarati ? 'રોકડ (Cash)' : 'CASH') : 'UPI'}
                 </button>
               ))}
             </div>
@@ -217,7 +222,7 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
                   </span>
                 </div>
                 <span className="text-[10px] font-bold px-1.5 py-0.2 bg-indigo-100 text-indigo-800 rounded shrink-0">
-                  Business QR
+                  {isGujarati ? 'વેપાર QR' : 'Business QR'}
                 </span>
               </div>
 
@@ -234,13 +239,15 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
                       <QrCode className="w-10 h-10" />
                     </div>
                   )}
-                  <span className="text-[9px] font-bold text-slate-500 block mt-1">Scan to Pay</span>
+                  <span className="text-[9px] font-bold text-slate-500 block mt-1">
+                    {isGujarati ? 'સ્કેન કરી ચૂકવો' : 'Scan to Pay'}
+                  </span>
                 </div>
 
                 <div className="text-xs space-y-1.5 min-w-0 flex-1">
                   <div>
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
-                      Payee UPI ID
+                      {t.customer.payeeUpiId}
                     </span>
                     <div className="flex items-center gap-1 mt-0.5">
                       <span className="text-[11px] font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 truncate select-all">
@@ -264,7 +271,9 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
                   </div>
 
                   <div className="pt-1">
-                    <span className="text-[10px] text-slate-500 block">Total Settlement</span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {t.customer.totalSettlement}
+                    </span>
                     <strong className="text-base font-extrabold text-indigo-700">
                       ₹{amount}
                     </strong>
@@ -277,43 +286,40 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
               </div>
 
               {upiIntentUri && (
-                <button
+                <Button
                   type="button"
+                  variant="indigo"
+                  size="sm"
+                  fullWidth
+                  glow
+                  leftIcon={<ExternalLink className="w-3.5 h-3.5" />}
                   onClick={handleOpenUpiApp}
-                  className="w-full py-1.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open in UPI App (Deep Link)</span>
-                </button>
+                  {t.customer.openInUpiApp}
+                </Button>
               )}
             </div>
           )}
 
           <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="md"
               onClick={onClose}
-              className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg cursor-pointer"
             >
-              Cancel
-            </button>
-            <button
+              {t.common.cancel}
+            </Button>
+            <Button
               type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
+              variant="amber"
+              size="md"
+              glow
+              isLoading={isSubmitting}
+              leftIcon={<Check className="w-3.5 h-3.5 stroke-[2.5]" />}
             >
-              {isSubmitting ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
-                  Recording...
-                </>
-              ) : (
-                <>
-                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                  Record Payment
-                </>
-              )}
-            </button>
+              {t.customer.recordPayment}
+            </Button>
           </div>
         </form>
       </div>

@@ -3,7 +3,10 @@ import { Customer, InventoryItem } from '../types';
 import { processDeliveryAtomic, DeliveryRecordInput } from '../services/deliveryService';
 import { getActiveSession, getActiveBusiness } from '../services/businessService';
 import { generateUpiUri, generateUpiQrDataUrl } from '../utils/upiUtils';
+import { triggerHaptic } from '../utils/haptics';
 import { X, Truck, Check, AlertCircle, IndianRupee, RotateCcw, Plus, Minus, ArrowRight, QrCode } from 'lucide-react';
+import { Button } from './ui/Button';
+import { useLanguage } from '../context/LanguageContext';
 
 interface NewDeliveryModalProps {
   isOpen: boolean;
@@ -30,6 +33,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
   defaultWorkerName,
   initialMode = 'STANDARD'
 }) => {
+  const { t, isGujarati } = useLanguage();
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [workerName, setWorkerName] = useState<string>('');
   const [selectedItemType, setSelectedItemType] = useState<string>('');
@@ -195,6 +199,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
       };
 
       await processDeliveryAtomic(input);
+      triggerHaptic('delivery');
 
       // Clean succinct toast message
       if (jarsDelivered === 0 && emptyJarsCollected > 0) {
@@ -227,7 +232,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                {isReturnOnly ? 'Record Empty Jar Return' : 'Record Delivery & Refill'}
+                {isReturnOnly ? t.worker.recordJarReturnTitle : t.worker.recordDeliveryTitle}
               </h3>
               <p className="text-xs text-slate-500">
                 {isReturnOnly 
@@ -304,7 +309,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Select Customer Account
+                {t.worker.selectCustomer}
               </label>
               {onOpenAddCustomer && (
                 <button
@@ -315,7 +320,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
                   }}
                   className="text-xs font-semibold text-sky-600 hover:text-sky-700 cursor-pointer"
                 >
-                  + Add New Customer
+                  + {t.customer.newCustomer}
                 </button>
               )}
             </div>
@@ -328,14 +333,14 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
             >
               {customers.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} — {c.route || 'General'} ({c.jarsHolding || 0} jars holding, Due: ₹{c.dueAmount || 0})
+                  {c.name} — {c.route || 'General'} ({c.jarsHolding || 0} {isGujarati ? 'જાર' : 'jars'}, {isGujarati ? 'બાકી' : 'Due'}: ₹{c.dueAmount || 0})
                 </option>
               ))}
             </select>
             {currentCustomer && (
               <div className="mt-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between text-xs text-slate-600">
-                <span>Holding Jars: <strong className="text-slate-900 font-bold">{currentCustomer.jarsHolding || 0} jars</strong></span>
-                <span>Payment Dues: <strong className={currentCustomer.dueAmount > 0 ? 'text-amber-700 font-bold' : 'text-slate-900 font-bold'}>₹{currentCustomer.dueAmount || 0}</strong></span>
+                <span>{t.worker.jarsHeld}: <strong className="text-slate-900 font-bold">{currentCustomer.jarsHolding || 0}</strong></span>
+                <span>{t.worker.pendingDue}: <strong className={currentCustomer.dueAmount > 0 ? 'text-amber-700 font-bold' : 'text-slate-900 font-bold'}>₹{currentCustomer.dueAmount || 0}</strong></span>
               </div>
             )}
           </div>
@@ -344,7 +349,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
-                Item / Product Type
+                {t.worker.itemProductType}
               </label>
               <select
                 value={selectedItemType}
@@ -373,7 +378,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Driver / Staff Name
+                  {t.worker.driverStaffName}
                 </label>
                 <span className="text-[11px] font-medium text-slate-400">Optional</span>
               </div>
@@ -394,11 +399,11 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
             <div className="p-3 bg-white rounded-xl border border-sky-100 shadow-2xs">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-bold text-sky-900">
-                  Jars Dropped (Full)
+                  {t.worker.jarsDroppedFull}
                 </label>
                 {jarsDelivered === 0 && (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded">
-                    0 (Return Only)
+                    {t.worker.returnOnlyBadge}
                   </span>
                 )}
               </div>
@@ -456,7 +461,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
             <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-2xs">
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-bold text-emerald-900">
-                  Empties Returned
+                  {t.worker.emptyJarsCollected}
                 </label>
                 {currentHolding > 0 && (
                   <button
@@ -541,7 +546,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
           {/* Payment Settlement Method */}
           <div>
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1.5">
-              Payment Settlement Method
+              {t.worker.paymentMode}
             </label>
             <div className="grid grid-cols-3 gap-2">
               {(['CREDIT', 'UPI', 'CASH'] as const).map((mode) => (
@@ -557,7 +562,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
                       : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                   }`}
                 >
-                  {mode === 'CREDIT' ? 'On Credit (Pay Later)' : mode}
+                  {mode === 'CREDIT' ? t.worker.credit : mode === 'UPI' ? t.worker.upi : t.worker.cash}
                 </button>
               ))}
             </div>
@@ -601,7 +606,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Total Amount Collected (₹)
+                {t.worker.totalAmountCollected}
               </label>
               <span className="text-xs text-slate-400">
                 {jarsDelivered > 0 ? `Unit Rate: ₹${unitPrice} × ${jarsDelivered} = ₹${jarsDelivered * unitPrice}` : 'Jar Return (No refill charge)'}
@@ -635,35 +640,25 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
 
           {/* Action Buttons */}
           <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="md"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
             >
-              Cancel
-            </button>
-            <button
+              {t.common.cancel}
+            </Button>
+            <Button
               type="submit"
-              disabled={isSubmitting}
               id="submit-delivery-button"
-              className={`inline-flex items-center gap-1.5 px-5 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
-                isReturnOnly 
-                  ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800' 
-                  : 'bg-sky-600 hover:bg-sky-700 active:bg-sky-800'
-              } disabled:opacity-50`}
+              variant={isReturnOnly ? 'emerald' : 'primary'}
+              size="md"
+              glow
+              isLoading={isSubmitting}
+              leftIcon={<Check className="w-4 h-4 stroke-[2.5]" />}
             >
-              {isSubmitting ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4 stroke-[2.5]" />
-                  {isReturnOnly ? 'Save Jar Return' : 'Save Delivery & Stock'}
-                </>
-              )}
-            </button>
+              {isReturnOnly ? t.worker.saveJarReturn : t.worker.saveDeliveryStock}
+            </Button>
           </div>
         </form>
       </div>

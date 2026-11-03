@@ -30,7 +30,11 @@ import {
   OrderBooking,
   BusinessAccount,
   BusinessWorker,
-  UserSessionProfile
+  UserSessionProfile,
+  DeliveryTrip,
+  CustomerSchedule,
+  FieldExpense,
+  ExpenseCategory
 } from './types';
 import { saveOrderBooking, modifyOrderBooking, removeOrderBooking, deleteCustomer } from './services/deliveryService';
 import { 
@@ -57,8 +61,27 @@ import {
   isRegisteredBusiness,
   DEFAULT_BUSINESS
 } from './services/businessService';
+import { 
+  fetchTripsFromCloud, 
+  fetchSchedulesFromCloud, 
+  fetchExpensesFromCloud, 
+  startDeliveryTrip, 
+  recordTripDelivery, 
+  completeDeliveryTrip, 
+  saveCustomerSchedule, 
+  deleteCustomerSchedule, 
+  addFieldExpense, 
+  deleteFieldExpense, 
+  getLocalTrips, 
+  getLocalSchedules, 
+  getLocalExpenses 
+} from './services/operationsService';
 import { Header } from './components/Header';
 import { DashboardPage } from './pages/DashboardPage';
+import { DriverRunView } from './components/DriverRunView';
+import { VehicleDispatchModal } from './components/VehicleDispatchModal';
+import { ScheduleManagementModal } from './components/ScheduleManagementModal';
+import { ExpenseTrackerModal } from './components/ExpenseTrackerModal';
 import { CustomerManagement } from './components/CustomerManagement';
 import { WarehouseView } from './components/WarehouseView';
 import { AnalyticsPage } from './components/AnalyticsPage';
@@ -77,6 +100,13 @@ import { ExportAccountingModal } from './components/ExportAccountingModal';
 import { PaymentQRModal } from './components/PaymentQRModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { DashboardSkeleton } from './components/skeletons/DashboardSkeleton';
+import { CustomerSkeleton } from './components/skeletons/CustomerSkeleton';
+import { DriverRunSkeleton } from './components/skeletons/DriverRunSkeleton';
+import { WarehouseSkeleton } from './components/skeletons/WarehouseSkeleton';
+import { OrdersSkeleton } from './components/skeletons/OrdersSkeleton';
+import { AnalyticsSkeleton } from './components/skeletons/AnalyticsSkeleton';
+import { triggerHaptic } from './utils/haptics';
 import { useDeploymentCache } from './hooks/useDeploymentCache';
 import { purgeAllAppCaches } from './services/cacheService';
 import { CheckCircle2, AlertCircle, Building2, Plus } from 'lucide-react';
@@ -94,6 +124,9 @@ export default function App() {
   const [workers, setWorkers] = useState<BusinessWorker[]>(() => getBusinessWorkers(getActiveBusiness().id));
   const [isGPayBusinessModalOpen, setIsGPayBusinessModalOpen] = useState(false);
 
+  // Firestore initial hydration / sync state
+  const [isInitialSyncing, setIsInitialSyncing] = useState<boolean>(true);
+
   // Initialize from local store for current business
   const [inventory, setInventory] = useState<InventoryItem[]>(() => getLocalStore(getActiveBusiness().id).inventory);
   const [customers, setCustomers] = useState<Customer[]>(() => getLocalStore(getActiveBusiness().id).customers);
@@ -105,6 +138,17 @@ export default function App() {
   const [isSeeding, setIsSeeding] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(() => getStoredUserEmail());
+
+  // Operations & Field Delivery State
+  const [trips, setTrips] = useState<DeliveryTrip[]>(() => getLocalTrips(getActiveBusiness().id));
+  const [schedules, setSchedules] = useState<CustomerSchedule[]>(() => getLocalSchedules(getActiveBusiness().id));
+  const [expenses, setExpenses] = useState<FieldExpense[]>(() => getLocalExpenses(getActiveBusiness().id));
+  const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
+  const [dispatchModalMode, setDispatchModalMode] = useState<'START' | 'COMPLETE'>('START');
+  const [isSchedulesModalOpen, setIsSchedulesModalOpen] = useState(false);
+  const [isExpensesModalOpen, setIsExpensesModalOpen] = useState(false);
+
+  const activeTrip = trips.find(t => t.status === 'ACTIVE') || null;
 
   // Modals
   const [isNewDeliveryOpen, setIsNewDeliveryOpen] = useState(false);
@@ -156,6 +200,108 @@ export default function App() {
     setTransactions([...fresh.transactions]);
     setOrders([...(fresh.orders || [])]);
     setWorkers(getBusinessWorkers(bizId));
+  };
+
+  const handleManualRefresh = async (bizId = currentBusiness.id) => {
+    try {
+      if (bizId && bizId !== 'default_business') {
+        const [invSnap, custSnap, delivSnap, txSnap, ordSnap, tripsSnap, schedSnap, expSnap] = await Promise.allSettled([
+          getDocs(collection(db, `businesses/${bizId}/inventory`)),
+          getDocs(collection(db, `businesses/${bizId}/customers`)),
+          getDocs(query(collection(db, `businesses/${bizId}/deliveries`), orderBy('timestamp', 'desc'), limit(50))),
+          getDocs(query(collection(db, `businesses/${bizId}/transactions`), orderBy('timestamp', 'desc'), limit(30))),
+          getDocs(collection(db, `businesses/${bizId}/orders`)),
+          getDocs(collection(db, `businesses/${bizId}/trips`)),
+          getDocs(collection(db, `businesses/${bizId}/schedules`)),
+          getDocs(collection(db, `businesses/${bizId}/expenses`))
+        ]);
+
+        if (invSnap.status === 'fulfilled' && invSnap.value) {
+          const items = invSnap.value.docs
+            .map(d => ({ id: d.id, ...(d.data() as Omit<InventoryItem, 'id'>) }))
+            .filter(item => !isDummyInventory(item));
+          setInventory(items);
+          const store = getLocalStore(bizId);
+          store.inventory = items;
+          saveLocalStore(store, bizId);
+        }
+
+        if (custSnap.status === 'fulfilled' && custSnap.value) {
+          const list = custSnap.value.docs
+            .map(d => ({ id: d.id, ...(d.data() as Omit<Customer, 'id'>) }))
+            .filter(cust => !isDummyCustomer(cust));
+          setCustomers(list);
+          const store = getLocalStore(bizId);
+          store.customers = list;
+          saveLocalStore(store, bizId);
+        }
+
+        if (delivSnap.status === 'fulfilled' && delivSnap.value) {
+          const list = delivSnap.value.docs
+            .map(d => ({ id: d.id, ...(d.data() as Omit<DeliveryLog, 'id'>) }))
+            .filter(deliv => !isDummyDelivery(deliv));
+          setDeliveries(list);
+          const store = getLocalStore(bizId);
+          store.deliveries = list;
+          saveLocalStore(store, bizId);
+        }
+
+        if (txSnap.status === 'fulfilled' && txSnap.value) {
+          const list = txSnap.value.docs
+            .map(d => ({ id: d.id, ...(d.data() as Omit<TransactionRecord, 'id'>) }))
+            .filter(tx => !isDummyTransaction(tx));
+          setTransactions(list);
+          const store = getLocalStore(bizId);
+          store.transactions = list;
+          saveLocalStore(store, bizId);
+        }
+
+        if (ordSnap.status === 'fulfilled' && ordSnap.value) {
+          const list = ordSnap.value.docs
+            .map(d => ({ id: d.id, ...(d.data() as Omit<OrderBooking, 'id'>) }))
+            .filter(ord => !isDummyOrder(ord));
+          setOrders(list);
+          const store = getLocalStore(bizId);
+          store.orders = list;
+          saveLocalStore(store, bizId);
+        }
+
+        if (tripsSnap.status === 'fulfilled' && tripsSnap.value) {
+          const list: DeliveryTrip[] = tripsSnap.value.docs.map(docSnap => ({
+            id: docSnap.id,
+            businessId: bizId,
+            ...(docSnap.data() as any)
+          }));
+          list.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+          setTrips(list);
+          localStorage.setItem(`aquapure_trips_${bizId}`, JSON.stringify(list));
+        }
+
+        if (schedSnap.status === 'fulfilled' && schedSnap.value) {
+          const list: CustomerSchedule[] = schedSnap.value.docs.map(docSnap => ({
+            id: docSnap.id,
+            ...(docSnap.data() as any)
+          }));
+          setSchedules(list);
+          localStorage.setItem(`aquapure_schedules_${bizId}`, JSON.stringify(list));
+        }
+
+        if (expSnap.status === 'fulfilled' && expSnap.value) {
+          const list: FieldExpense[] = expSnap.value.docs.map(docSnap => ({
+            id: docSnap.id,
+            businessId: bizId,
+            ...(docSnap.data() as any)
+          }));
+          list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          setExpenses(list);
+          localStorage.setItem(`aquapure_expenses_${bizId}`, JSON.stringify(list));
+        }
+      }
+      refreshFromLocalStore(bizId);
+    } catch (err) {
+      console.warn("Manual sync error:", err);
+      refreshFromLocalStore(bizId);
+    }
   };
 
   const handleSelectBusiness = (business: BusinessAccount, role: 'OWNER' | 'WORKER', workerRecord?: BusinessWorker) => {
@@ -368,10 +514,17 @@ export default function App() {
     // 0.1 Live Workers Subscription for this business
     const workersColRef = collection(db, `businesses/${businessId}/workers`);
     const workersUnsub = onSnapshot(workersColRef, (snap) => {
-      const cloudWorkers = snap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      })) as BusinessWorker[];
+      const seen = new Set<string>();
+      const cloudWorkers: BusinessWorker[] = [];
+      for (const d of snap.docs) {
+        if (!seen.has(d.id)) {
+          seen.add(d.id);
+          cloudWorkers.push({
+            id: d.id,
+            ...d.data()
+          } as BusinessWorker);
+        }
+      }
       setWorkers(cloudWorkers);
     }, () => {});
 
@@ -566,7 +719,62 @@ export default function App() {
       }
     );
 
+    // 6. Subscribe to Delivery Trips
+    const tripsPath = `businesses/${businessId}/trips`;
+    const tripsUnsub = onSnapshot(
+      collection(db, tripsPath),
+      (snapshot) => {
+        const list: DeliveryTrip[] = snapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          businessId,
+          ...(docSnap.data() as any)
+        }));
+        list.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+        setTrips(list);
+        localStorage.setItem(`aquapure_trips_${businessId}`, JSON.stringify(list));
+      },
+      () => {}
+    );
+
+    // 7. Subscribe to Customer Schedules
+    const schedulesPath = `businesses/${businessId}/schedules`;
+    const schedulesUnsub = onSnapshot(
+      collection(db, schedulesPath),
+      (snapshot) => {
+        const list: CustomerSchedule[] = snapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...(docSnap.data() as any)
+        }));
+        setSchedules(list);
+        localStorage.setItem(`aquapure_schedules_${businessId}`, JSON.stringify(list));
+      },
+      () => {}
+    );
+
+    // 8. Subscribe to Field Expenses
+    const expensesPath = `businesses/${businessId}/expenses`;
+    const expensesUnsub = onSnapshot(
+      collection(db, expensesPath),
+      (snapshot) => {
+        const list: FieldExpense[] = snapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          businessId,
+          ...(docSnap.data() as any)
+        }));
+        list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        setExpenses(list);
+        localStorage.setItem(`aquapure_expenses_${businessId}`, JSON.stringify(list));
+      },
+      () => {}
+    );
+
+    // Initial Firestore sync grace period timer to ensure smooth skeleton transitions
+    const syncTimer = setTimeout(() => {
+      setIsInitialSyncing(false);
+    }, 450);
+
     return () => {
+      clearTimeout(syncTimer);
       authUnsub();
       bizUnsub();
       workersUnsub();
@@ -575,6 +783,9 @@ export default function App() {
       delivUnsub();
       txUnsub();
       ordersUnsub();
+      tripsUnsub();
+      schedulesUnsub();
+      expensesUnsub();
     };
   }, [currentBusiness.id]);
 
@@ -746,6 +957,100 @@ export default function App() {
     showToast("Signed out successfully");
   };
 
+  // Operations & Field Delivery Handlers
+  const handleStartTrip = async (data: {
+    driverPhone: string;
+    driverName: string;
+    vehicleNumber?: string;
+    routeName: string;
+    loadedFullJars: number;
+  }) => {
+    const newTrip = await startDeliveryTrip(currentBusiness.id, data);
+    setTrips(prev => [newTrip, ...prev.filter(t => t.id !== newTrip.id)]);
+    showToast(`Delivery run started for ${data.driverName} (${data.loadedFullJars} Jars loaded)`);
+  };
+
+  const handleCompleteTrip = async (tripId: string, reconciliation: {
+    returnedFullJars: number;
+    notes?: string;
+  }) => {
+    const completed = await completeDeliveryTrip(currentBusiness.id, tripId, reconciliation);
+    if (completed) {
+      setTrips(prev => prev.map(t => t.id === tripId ? completed : t));
+    }
+    triggerHaptic('delivery');
+    refreshFromLocalStore(currentBusiness.id);
+    showToast('Shift trip reconciled and completed successfully');
+  };
+
+  const handleRecordQuickDelivery = async (payload: {
+    customerId: string;
+    customerName: string;
+    jarsDelivered: number;
+    emptyJarsCollected: number;
+    amountCollected: number;
+    paymentMode: 'CASH' | 'UPI' | 'CREDIT';
+    notes?: string;
+  }) => {
+    triggerHaptic('delivery');
+    if (!activeTrip) {
+      // Record direct delivery
+      await recordTripDelivery(currentBusiness.id, 'ad_hoc', {
+        ...payload,
+        workerName: userSession?.displayName || userSession?.workerRecord?.workerName || currentBusiness.ownerName
+      });
+      refreshFromLocalStore(currentBusiness.id);
+      showToast(`Delivered to ${payload.customerName}`);
+      return;
+    }
+
+    const { trip } = await recordTripDelivery(currentBusiness.id, activeTrip.id, {
+      ...payload,
+      workerName: activeTrip.driverName
+    });
+    setTrips(prev => prev.map(t => t.id === trip.id ? trip : t));
+    refreshFromLocalStore(currentBusiness.id);
+    showToast(`Delivered ${payload.jarsDelivered} jar(s) to ${payload.customerName}`);
+  };
+
+  const handleSaveSchedule = async (scheduleData: Omit<CustomerSchedule, 'id'> & { id?: string }) => {
+    const saved = await saveCustomerSchedule(currentBusiness.id, scheduleData);
+    setSchedules(prev => {
+      const idx = prev.findIndex(s => s.id === saved.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = saved;
+        return next;
+      }
+      return [...prev, saved];
+    });
+    showToast(`Schedule saved for ${saved.customerName}`);
+  };
+
+  const handleDeleteSchedule = async (scheduleId: string) => {
+    await deleteCustomerSchedule(currentBusiness.id, scheduleId);
+    setSchedules(prev => prev.filter(s => s.id !== scheduleId));
+    showToast('Delivery schedule removed');
+  };
+
+  const handleAddExpense = async (expenseData: {
+    category: ExpenseCategory;
+    amount: number;
+    description: string;
+    loggedBy: string;
+    vehicleNumber?: string;
+  }) => {
+    const added = await addFieldExpense(currentBusiness.id, expenseData);
+    setExpenses(prev => [added, ...prev]);
+    showToast(`Expense recorded: ₹${added.amount}`);
+  };
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    await deleteFieldExpense(currentBusiness.id, expenseId);
+    setExpenses(prev => prev.filter(e => e.id !== expenseId));
+    showToast('Expense record removed');
+  };
+
   // Order Handlers
   const handleOpenNewOrder = () => {
     if (!isBusinessRegistered) {
@@ -763,6 +1068,7 @@ export default function App() {
   };
 
   const handleSaveOrder = async (orderData: Omit<OrderBooking, 'id' | 'bookingDate'>, orderId?: string) => {
+    triggerHaptic('order');
     if (orderId) {
       const updated = await modifyOrderBooking(currentBusiness.id, orderId, orderData);
       if (updated) {
@@ -817,6 +1123,7 @@ export default function App() {
   };
 
   const handleDeleteCustomer = async (customerId: string, customerName: string) => {
+    triggerHaptic('delete');
     try {
       await deleteCustomer(currentBusiness.id || DEFAULT_BUSINESS_ID, customerId);
       refreshFromLocalStore(currentBusiness.id || DEFAULT_BUSINESS_ID);
@@ -901,35 +1208,70 @@ export default function App() {
               </button>
             </div>
           </div>
+        ) : isInitialSyncing ? (
+          <>
+            {activeTab === 'dashboard' && <DashboardSkeleton />}
+            {activeTab === 'driver_run' && <DriverRunSkeleton />}
+            {activeTab === 'customers' && <CustomerSkeleton />}
+            {activeTab === 'inventory' && <WarehouseSkeleton />}
+            {activeTab === 'orders' && <OrdersSkeleton />}
+            {activeTab === 'team' && <CustomerSkeleton />}
+            {activeTab === 'analytics' && <AnalyticsSkeleton />}
+          </>
         ) : userSession?.role === 'WORKER' ? (
-          <CustomerManagement
-            customers={customers}
-            onOpenAddCustomer={() => {
-              if (!isBusinessRegistered) {
-                showToast("Please register or select your business first", "error");
-                setIsGPayBusinessModalOpen(true);
-                return;
-              }
-              setIsAddCustomerOpen(true);
-            }}
-            onOpenEditCustomer={(cust) => {
-              setEditingCustomer(cust);
-              setIsAddCustomerOpen(true);
-            }}
-            onOpenSettleDue={(cust) => setSettleDueCustomer(cust)}
-            onQuickDeliveryToCustomer={handleQuickDeliveryToCustomer}
-            onOpenPaymentQR={handleOpenPaymentQR}
-            searchQuery={globalSearchTerm}
-            onSearchChange={setGlobalSearchTerm}
-            onClearSearch={() => setGlobalSearchTerm('')}
-            onRefresh={() => {
-              refreshFromLocalStore(currentBusiness.id);
-            }}
-            onDeleteCustomer={handleDeleteCustomer}
-            userRole="WORKER"
-            businessName={currentBusiness.name}
-            businessPhone={currentBusiness.ownerPhone}
-          />
+          <>
+            {activeTab === 'driver_run' ? (
+              <DriverRunView
+                business={currentBusiness}
+                customers={customers}
+                schedules={schedules}
+                activeTrip={activeTrip}
+                currentUserSession={userSession}
+                onStartTripClick={() => {
+                  setDispatchModalMode('START');
+                  setIsDispatchModalOpen(true);
+                }}
+                onCompleteTripClick={() => {
+                  setDispatchModalMode('COMPLETE');
+                  setIsDispatchModalOpen(true);
+                }}
+                onRecordQuickDelivery={handleRecordQuickDelivery}
+                onOpenSchedulesModal={() => setIsSchedulesModalOpen(true)}
+                onOpenExpensesModal={() => setIsExpensesModalOpen(true)}
+                onRefreshData={() => refreshFromLocalStore(currentBusiness.id)}
+              />
+            ) : (
+              <CustomerManagement
+                customers={customers}
+                onOpenAddCustomer={() => {
+                  if (!isBusinessRegistered) {
+                    showToast("Please register or select your business first", "error");
+                    setIsGPayBusinessModalOpen(true);
+                    return;
+                  }
+                  setIsAddCustomerOpen(true);
+                }}
+                onOpenEditCustomer={(cust) => {
+                  setEditingCustomer(cust);
+                  setIsAddCustomerOpen(true);
+                }}
+                onOpenSettleDue={(cust) => setSettleDueCustomer(cust)}
+                onQuickDeliveryToCustomer={handleQuickDeliveryToCustomer}
+                onOpenPaymentQR={handleOpenPaymentQR}
+                onOpenNewDelivery={() => handleOpenDeliveryModal()}
+                onOpenNewOrder={handleOpenNewOrder}
+                onOpenRestock={handleOpenRestock}
+                searchQuery={globalSearchTerm}
+                onSearchChange={setGlobalSearchTerm}
+                onClearSearch={() => setGlobalSearchTerm('')}
+                onRefresh={handleManualRefresh}
+                onDeleteCustomer={handleDeleteCustomer}
+                userRole="WORKER"
+                businessName={currentBusiness.name}
+                businessPhone={currentBusiness.ownerPhone}
+              />
+            )}
+          </>
         ) : (
           <>
             {activeTab === 'dashboard' && (
@@ -948,7 +1290,30 @@ export default function App() {
                 onSearchChange={setGlobalSearchTerm}
                 onClearSearch={() => setGlobalSearchTerm('')}
                 onNavigateToTab={(tab: ActiveTab) => setActiveTab(tab)}
+                onRefresh={handleManualRefresh}
                 userRole="OWNER"
+              />
+            )}
+
+            {activeTab === 'driver_run' && (
+              <DriverRunView
+                business={currentBusiness}
+                customers={customers}
+                schedules={schedules}
+                activeTrip={activeTrip}
+                currentUserSession={userSession}
+                onStartTripClick={() => {
+                  setDispatchModalMode('START');
+                  setIsDispatchModalOpen(true);
+                }}
+                onCompleteTripClick={() => {
+                  setDispatchModalMode('COMPLETE');
+                  setIsDispatchModalOpen(true);
+                }}
+                onRecordQuickDelivery={handleRecordQuickDelivery}
+                onOpenSchedulesModal={() => setIsSchedulesModalOpen(true)}
+                onOpenExpensesModal={() => setIsExpensesModalOpen(true)}
+                onRefreshData={() => refreshFromLocalStore(currentBusiness.id)}
               />
             )}
 
@@ -985,12 +1350,13 @@ export default function App() {
                 onOpenSettleDue={(cust) => setSettleDueCustomer(cust)}
                 onQuickDeliveryToCustomer={handleQuickDeliveryToCustomer}
                 onOpenPaymentQR={handleOpenPaymentQR}
+                onOpenNewDelivery={() => handleOpenDeliveryModal()}
+                onOpenNewOrder={handleOpenNewOrder}
+                onOpenRestock={handleOpenRestock}
                 searchQuery={globalSearchTerm}
                 onSearchChange={setGlobalSearchTerm}
                 onClearSearch={() => setGlobalSearchTerm('')}
-                onRefresh={() => {
-                  refreshFromLocalStore(currentBusiness.id);
-                }}
+                onRefresh={handleManualRefresh}
                 onDeleteCustomer={handleDeleteCustomer}
                 onOpenCustomerInvoice={handleOpenCustomerInvoice}
                 userRole="OWNER"
@@ -1193,6 +1559,43 @@ export default function App() {
         activeSession={userSession}
         onSelectBusiness={handleSelectBusiness}
         onSignOutPhone={handleSignOutBusiness}
+      />
+
+      {/* Vehicle Dispatch & Shift Reconciliation Modal */}
+      <VehicleDispatchModal
+        isOpen={isDispatchModalOpen}
+        onClose={() => setIsDispatchModalOpen(false)}
+        mode={dispatchModalMode}
+        business={currentBusiness}
+        activeTrip={activeTrip}
+        workers={workers}
+        inventory={inventory}
+        currentDriverName={userSession?.displayName || userSession?.workerRecord?.workerName || currentBusiness.ownerName}
+        currentDriverPhone={userSession?.phoneNumber || currentBusiness.ownerPhone}
+        onStartTrip={handleStartTrip}
+        onCompleteTrip={handleCompleteTrip}
+      />
+
+      {/* Recurring Customer Delivery Schedules Modal */}
+      <ScheduleManagementModal
+        isOpen={isSchedulesModalOpen}
+        onClose={() => setIsSchedulesModalOpen(false)}
+        business={currentBusiness}
+        customers={customers}
+        schedules={schedules}
+        onSaveSchedule={handleSaveSchedule}
+        onDeleteSchedule={handleDeleteSchedule}
+      />
+
+      {/* Field Expenses & Vehicle Fuel Tracker Modal */}
+      <ExpenseTrackerModal
+        isOpen={isExpensesModalOpen}
+        onClose={() => setIsExpensesModalOpen(false)}
+        business={currentBusiness}
+        expenses={expenses}
+        currentUserName={userSession?.displayName || userSession?.workerRecord?.workerName || currentBusiness.ownerName}
+        onAddExpense={handleAddExpense}
+        onDeleteExpense={handleDeleteExpense}
       />
 
       {/* Persistent Mobile Bottom Navigation Bar (< 768px) */}

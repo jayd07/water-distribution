@@ -1,57 +1,41 @@
-# Production Readiness Audit & Launch Implementation Plan
+# Implementation Plan - Breadcrumb Navigation Trail in Header
 
-## Executive Summary & Production Readiness Status
-The Water Distribution & Inventory Management web application is architecturally sound and functionally complete for core operations:
-* **Multi-tenant Multi-Business Architecture**: Isolated Firestore sync per business workspace with role-based staff assignments (Owner, Manager, Driver, Dispatcher).
-* **Core Logistics**: Delivery dispatching, jar inventory tracking, security deposit recording, customer dues ledgers, and event cooler bookings.
-* **Resilience**: PWA offline support, optimistic local storage fallbacks, and resilient Firestore long-polling network transport.
+Add an interactive breadcrumb trail to the header component positioned as a clean sub-bar beneath the primary header row. The breadcrumb tracks user context (e.g., `Home > Customers > Acme Corp` or `Home > Operations`), supports clickable segment transitions, and adapts to a compact back-link trail on mobile viewports.
 
----
+## User Review Required
 
-## 1. Production Gap Analysis & Audit
-
-| Category | Current State | Production Launch Requirement | Status |
-| :--- | :--- | :--- | :--- |
-| **Firestore Security Rules** | Rules deployed with multi-subcollection support | Ensure zero unauthenticated open writes across all business tenant namespaces | ✅ Pass |
-| **React 19 & Hook Integrity** | All component hooks unconditionally ordered | Zero static flag assertion errors or lifecycle warnings | ✅ Pass |
-| **PWA & Offline Capability** | Service worker, manifest, and local store caching configured | Standalone mobile installability and offline logging | ✅ Pass |
-| **Invoicing & Billing** | InvoiceModal with dynamic business header, tax ID & address | Direct UPI QR code rendering and dynamic payment intent links | 🔄 Upgrading |
-| **Payment Collection** | Manual cash/UPI selection | Integrated instant UPI QR code generator for any payment app (GPay, PhonePe, Paytm) | 🔄 Planned |
-| **Automated Reminders** | Basic WhatsApp share | 1-click tailored reminder templates for overdue customer balances with UPI payment links | 🔄 Planned |
-| **Accounting Sync** | Formatted Daily Day Book CSV export & clipboard copy | Google Sheets direct formatting / automated sync readiness | 🔄 Planned |
+> [!NOTE]
+> - Positioning: Sub-bar directly beneath the main header row inside the sticky header container, maintaining seamless background blur and styling.
+> - Navigation interaction: Clicking breadcrumb links smoothly transitions `activeTab` (and resets sub-entity selection where appropriate, e.g., clicking `Customers` returns from detail to the customer roster).
+> - Production safeguards: No changes to Firestore rules, no alteration of authentication/OTP flow.
 
 ---
 
-## 2. Integration Roadmap for Public Launch
+## Proposed Changes
 
-### Phase 1: Instant UPI Payment QR & Intent Integration
-* **Dynamic UPI QR Code Generator**: Generate compliant Bharat UPI QR codes (`upi://pay?pa={vpa}&pn={name}&am={amount}&tn={invoiceNo}&cu=INR`) on:
-  * Print & Digital Invoices
-  * Customer Statement / Ledger views
-  * Due Clearance & Delivery receipt modal
-* **Payment UPI ID Configuration**: Allow businesses to easily specify their UPI VPA (e.g., `business@okaxis` or `number@upi`) in Business Settings.
+### Header Component
 
-### Phase 2: Automated 1-Click WhatsApp Reminders & Statements
-* **Overdue Balance Ledger Reminders**: Pre-formatted WhatsApp reminder message containing:
-  * Customer name and exact overdue amount
-  * Bottle holding summary
-  * Business name and address
-  * Direct UPI payment link (`upi://pay?...`) for 1-tap mobile payment
-* **Bulk Overdue Reminder Assistant**: Quick filter on the Customers tab to dispatch payment reminders to all pending accounts in sequence.
-
-### Phase 3: Google Sheets & Enhanced Cloud Export
-* **Google Sheets-Ready Structured Day Book**: Enhanced CSV columns compatible with Google Sheets auto-import and accounting software (Tally / Zoho Books).
-* **One-Click Sheet Import Guides & Webhooks**: Direct cloud export triggers and daily accounting summaries.
-
-### Phase 4: Production Hardening & Deployment Checklist
-1. **Asset Caching & Hash Invalidation**: Verify postbuild cache-busting to prevent stale cached bundles on mobile devices.
-2. **Firestore Rules Hardening**: Ensure strict schema validation on deliveries, inventory, transactions, and customers.
-3. **Environment & App Metadata**: Final check on SEO tags, open-graph cards, PWA icons, and performance score.
+#### [src/components/Header.tsx](file:///workspace/src/components/Header.tsx)
+- Add breadcrumb configuration and hierarchy resolver based on `activeTab` and `selectedCustomer`:
+  - Base: `Home` (navigates to `'dashboard'`)
+  - Section: Friendly tab labels (`Dashboard`, `Driver Delivery Run`, `Operations Hub`, `Order Management`, `Customer Accounts`, `Inventory & Bottles`, `Team & Staff`, `Analytics & Reports`) with corresponding Lucide icons
+  - Detail item (when applicable): `selectedCustomer.businessName` (clicking `Customer Accounts` clears the customer selection to return to the list)
+- Render breadcrumb sub-bar as a secondary row below the main header row:
+  - **Desktop view**: Full breadcrumb trail (`Home / Section / Detail`) with subtle separator icons (`ChevronRight`), hover highlights, and aria-label `Breadcrumb` with `aria-current="page"`.
+  - **Mobile view**: Compact view displaying a return/back link with a left chevron to parent and current active page indicator.
+- Support optional quick actions / reset if viewing sub-resources.
 
 ---
 
-## 3. Proposed Implementation Order
-1. **Add UPI VPA & QR Integration**: Add UPI ID field to Business Account settings and render dynamic scan-to-pay QR codes in `InvoiceModal`, `SettleDueModal`, and `NewDeliveryModal`.
-2. **Implement WhatsApp Reminder Generator**: Add a dedicated "Send Reminder" button with pre-filled payment details on the Customer Card and Customer Profile dialog.
-3. **Refine Day Book & Accounting Export**: Optimize CSV data headers for instant Google Sheets and Excel formula compatibility.
-4. **Final Production Build & Compilation Verification**: Run end-to-end production build (`npm run build`) and verify live preview.
+## Verification Plan
+
+### Automated Verification
+- Run `npm run lint` / `lint_applet` to check for syntax and type safety.
+- Run `compile_applet` to ensure successful TypeScript build and Vite packaging.
+
+### Manual Verification Steps
+1. Navigate between tabs (Dashboard, Orders, Customers, Inventory, Analytics) and observe the breadcrumbs updating dynamically.
+2. Select a customer and verify the trail extends to `Home > Customers > [Business Name]`.
+3. Click the `Customers` breadcrumb link and verify it returns to the main customer list.
+4. Click `Home` and confirm it switches to the Dashboard.
+5. Resize screen to mobile view width (< 640px) to verify compact mobile layout.

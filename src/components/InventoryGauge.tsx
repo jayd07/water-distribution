@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { InventoryItem } from '../types';
 import { Plus } from 'lucide-react';
+import { CardSpotlight } from './ui/CardSpotlight';
 
 interface InventoryGaugeProps {
   inventory: InventoryItem[];
@@ -12,7 +13,7 @@ export const InventoryGauge: React.FC<InventoryGaugeProps> = ({ inventory, onOpe
 
   if (inventory.length === 0) {
     return (
-      <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs space-y-4">
+      <CardSpotlight spotlightColor="rgba(2, 132, 199, 0.1)" className="p-5 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div>
             <h3 className="text-sm font-bold text-slate-900">Inventory Status</h3>
@@ -26,7 +27,7 @@ export const InventoryGauge: React.FC<InventoryGaugeProps> = ({ inventory, onOpe
             <span>Restock</span>
           </button>
         </div>
-        <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center space-y-2">
+        <div className="p-4 bg-slate-50/80 rounded-xl border border-dashed border-slate-200 text-center space-y-2">
           <p className="text-xs text-slate-500 font-medium">No inventory stock added yet.</p>
           <button
             onClick={() => onOpenRestock()}
@@ -35,7 +36,7 @@ export const InventoryGauge: React.FC<InventoryGaugeProps> = ({ inventory, onOpe
             + Add First Stock / Restock
           </button>
         </div>
-      </div>
+      </CardSpotlight>
     );
   }
 
@@ -49,7 +50,7 @@ export const InventoryGauge: React.FC<InventoryGaugeProps> = ({ inventory, onOpe
   const borrowedPct = 100 - availablePct;
 
   return (
-    <div className="bg-white p-5 rounded-xl border border-slate-200/90 shadow-2xs space-y-4">
+    <CardSpotlight spotlightColor="rgba(2, 132, 199, 0.1)" className="p-5 space-y-4">
       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
         <div>
           <h3 className="text-sm font-bold text-slate-900">Inventory Status</h3>
@@ -87,7 +88,7 @@ export const InventoryGauge: React.FC<InventoryGaugeProps> = ({ inventory, onOpe
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs">
           <span className="font-medium text-slate-700">Stock Ratio</span>
-          <span className="text-slate-500">{availablePct}% available</span>
+          <span className="text-slate-500 font-mono tabular-nums">{availablePct}% available</span>
         </div>
         <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden flex">
           <div 
@@ -103,24 +104,24 @@ export const InventoryGauge: React.FC<InventoryGaugeProps> = ({ inventory, onOpe
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 gap-3 pt-1">
-        <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-          <span className="text-xs text-slate-500 block">Warehouse Ready</span>
-          <span className="text-xl font-bold text-slate-900">{available}</span>
+        <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100/90 shadow-2xs">
+          <span className="text-xs text-slate-500 block font-medium">Warehouse Ready</span>
+          <span className="text-xl font-bold text-slate-900 font-mono tabular-nums">{available}</span>
           <span className="text-[11px] text-slate-400 block mt-0.5">Filled & sealed</span>
         </div>
 
-        <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-          <span className="text-xs text-slate-500 block">With Customers</span>
-          <span className="text-xl font-bold text-slate-900">{borrowed}</span>
+        <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100/90 shadow-2xs">
+          <span className="text-xs text-slate-500 block font-medium">With Customers</span>
+          <span className="text-xl font-bold text-slate-900 font-mono tabular-nums">{borrowed}</span>
           <span className="text-[11px] text-slate-400 block mt-0.5">In market float</span>
         </div>
       </div>
 
       {/* Rates Footer */}
       <div className="text-xs text-slate-500 flex items-center justify-between pt-1 border-t border-slate-100">
-        <span>Refill Price: <strong className="text-slate-800">₹{currentItem.unitPrice || 35}</strong></span>
-        <span>Jar Deposit: <strong className="text-slate-800">₹{currentItem.depositAmount || 150}</strong></span>
+        <span>Refill Price: <strong className="text-slate-800 font-mono tabular-nums">₹{currentItem.unitPrice || 35}</strong></span>
+        <span>Jar Deposit: <strong className="text-slate-800 font-mono tabular-nums">₹{currentItem.depositAmount || 150}</strong></span>
       </div>
-    </div>
+    </CardSpotlight>
   );
 };

@@ -12,13 +12,15 @@ import {
   Trash2, 
   CheckCircle2, 
   Clock, 
-  AlertTriangle,
-  X,
-  Truck,
-  ShieldCheck,
-  Check
+  AlertTriangle, 
+  X, 
+  Truck, 
+  ShieldCheck, 
+  Check 
 } from 'lucide-react';
 import { OrderBooking, Customer } from '../types';
+import { CardSpotlight } from './ui/CardSpotlight';
+import { AnimatedTabs, TabItem } from './ui/AnimatedTabs';
 
 export interface OrdersManagementProps {
   orders: OrderBooking[];
@@ -32,6 +34,8 @@ export interface OrdersManagementProps {
   onSearchChange?: (val: string) => void;
 }
 
+type OrderStatusFilter = 'ALL' | 'CONFIRMED' | 'PENDING' | 'DELIVERED' | 'CANCELLED';
+
 export const OrdersManagement: React.FC<OrdersManagementProps> = ({
   orders,
   customers,
@@ -44,7 +48,7 @@ export const OrdersManagement: React.FC<OrdersManagementProps> = ({
   onSearchChange
 }) => {
   const [localSearch, setLocalSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'CONFIRMED' | 'PENDING' | 'DELIVERED' | 'CANCELLED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>('ALL');
   const [itemFilter, setItemFilter] = useState<string>('ALL');
 
   const effectiveSearch = searchQuery !== undefined && searchQuery !== '' ? searchQuery : localSearch;
@@ -122,46 +126,54 @@ Thank you for booking!`;
     window.open(whatsappUrl, '_blank');
   };
 
+  const statusTabs: TabItem<OrderStatusFilter>[] = [
+    { id: 'ALL', label: 'All Orders' },
+    { id: 'CONFIRMED', label: 'Confirmed' },
+    { id: 'PENDING', label: 'Pending' },
+    { id: 'DELIVERED', label: 'Delivered' },
+    { id: 'CANCELLED', label: 'Cancelled' },
+  ];
+
   return (
     <div className="space-y-5">
       
-      {/* Top Banner & Quick Metrics */}
+      {/* Top Banner & Quick Metrics with CardSpotlight */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+        <CardSpotlight spotlightColor="rgba(6, 182, 212, 0.12)" className="p-3.5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-semibold">Active Bookings</span>
             <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
           </div>
-          <p className="text-xl font-bold text-slate-900 mt-1">{totalActiveBookings}</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1 font-mono tabular-nums">{totalActiveBookings}</p>
           <span className="text-[11px] text-cyan-600 font-medium mt-0.5">Functions scheduled</span>
-        </div>
+        </CardSpotlight>
 
-        <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+        <CardSpotlight spotlightColor="rgba(16, 185, 129, 0.12)" className="p-3.5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-semibold">Completed Orders</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
           </div>
-          <p className="text-xl font-bold text-slate-900 mt-1">{totalCompletedBookings}</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1 font-mono tabular-nums">{totalCompletedBookings}</p>
           <span className="text-[11px] text-emerald-600 font-medium mt-0.5">Delivered & billed</span>
-        </div>
+        </CardSpotlight>
 
-        <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+        <CardSpotlight spotlightColor="rgba(245, 158, 11, 0.12)" className="p-3.5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-semibold">Deposits In Custody</span>
             <ShieldCheck className="w-4 h-4 text-amber-500" />
           </div>
-          <p className="text-xl font-bold text-amber-700 mt-1">₹{totalDepositHeld.toLocaleString('en-IN')}</p>
+          <p className="text-2xl font-bold text-amber-700 mt-1 font-mono tabular-nums">₹{totalDepositHeld.toLocaleString('en-IN')}</p>
           <span className="text-[11px] text-slate-400 font-medium mt-0.5">Refundable security</span>
-        </div>
+        </CardSpotlight>
 
-        <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+        <CardSpotlight spotlightColor="rgba(99, 102, 241, 0.12)" className="p-3.5 flex flex-col justify-between">
           <div className="flex items-center justify-between text-slate-500">
             <span className="text-xs font-semibold">Total Order Revenue</span>
             <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
           </div>
-          <p className="text-xl font-bold text-slate-900 mt-1">₹{totalRevenue.toLocaleString('en-IN')}</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1 font-mono tabular-nums">₹{totalRevenue.toLocaleString('en-IN')}</p>
           <span className="text-[11px] text-indigo-600 font-medium mt-0.5">Rentals & function supply</span>
-        </div>
+        </CardSpotlight>
       </div>
 
       {/* Main Action Bar & Search Filters */}
@@ -180,7 +192,7 @@ Thank you for booking!`;
           <button
             onClick={onOpenNewOrder}
             id="book-new-order-btn"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors shrink-0 cursor-pointer"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Book New Cooler / Jar</span>
@@ -203,29 +215,21 @@ Thank you for booking!`;
             {effectiveSearch && (
               <button
                 onClick={handleClear}
-                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-            {(['ALL', 'CONFIRMED', 'PENDING', 'DELIVERED', 'CANCELLED'] as const).map(st => (
-              <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  statusFilter === st
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {st === 'ALL' ? 'All Orders' : st}
-              </button>
-            ))}
-          </div>
+          {/* Animated Status Filter */}
+          <AnimatedTabs
+            tabs={statusTabs}
+            activeTab={statusFilter}
+            onChange={(st) => setStatusFilter(st)}
+            layoutId="orders-status-filter"
+            size="sm"
+          />
 
           {/* Item Type Filter */}
           {itemTypes.length > 0 && (
@@ -233,7 +237,7 @@ Thank you for booking!`;
               value={itemFilter}
               onChange={e => setItemFilter(e.target.value)}
               id="orders-item-filter"
-              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer"
             >
               <option value="ALL">All Equipment Types</option>
               {itemTypes.map(t => (
@@ -244,10 +248,10 @@ Thank you for booking!`;
         </div>
       </div>
 
-      {/* Orders List / Cards (Responsive Desktop Table + Mobile Cards) */}
+      {/* Orders List / Cards with CardSpotlight */}
       <div className="space-y-3">
         {filteredOrders.length === 0 ? (
-          <div className="p-8 text-center bg-white rounded-2xl border border-slate-200/80">
+          <div className="p-8 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
             <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
             <p className="text-sm font-semibold text-slate-700">No function orders found</p>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -260,15 +264,22 @@ Thank you for booking!`;
             const isCancelled = order.status === 'CANCELLED';
 
             return (
-              <div
+              <CardSpotlight
                 key={order.id}
                 id={`order-card-${order.id}`}
-                className={`p-4 rounded-2xl border transition-all bg-white shadow-xs ${
+                spotlightColor={
                   isCompleted 
-                    ? 'border-emerald-200/80 hover:border-emerald-300' 
+                    ? 'rgba(16, 185, 129, 0.1)' 
+                    : isCancelled 
+                    ? 'rgba(148, 163, 184, 0.08)' 
+                    : 'rgba(6, 182, 212, 0.12)'
+                }
+                className={`p-4 transition-all ${
+                  isCompleted 
+                    ? 'border-emerald-200/80' 
                     : isCancelled
                     ? 'border-slate-200 opacity-70'
-                    : 'border-slate-200/80 hover:border-cyan-300'
+                    : 'border-slate-200/80'
                 }`}
               >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -276,7 +287,7 @@ Thank you for booking!`;
                   {/* Left Column: Customer & Item Information */}
                   <div className="space-y-1.5 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700">
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 font-mono">
                         {order.id.toUpperCase()}
                       </span>
                       <h3 className="text-sm font-bold text-slate-900">{order.customerName}</h3>
@@ -305,12 +316,12 @@ Thank you for booking!`;
 
                     {/* Booking Specifics */}
                     <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-slate-600">
-                      <span className="font-semibold text-cyan-900 bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-100">
+                      <span className="font-semibold text-cyan-900 bg-cyan-50 px-2 py-0.5 rounded-md border border-cyan-100 font-mono tabular-nums">
                         {order.quantity} × {order.itemType}
                       </span>
                       <span className="flex items-center gap-1 text-slate-700">
                         <Phone className="w-3.5 h-3.5 text-slate-400" />
-                        <a href={`tel:${order.customerMobile}`} className="hover:underline">
+                        <a href={`tel:${order.customerMobile}`} className="hover:underline font-mono">
                           {order.customerMobile}
                         </a>
                       </span>
@@ -348,17 +359,17 @@ Thank you for booking!`;
                   <div className="flex items-center gap-4 py-2 lg:py-0 border-y lg:border-y-0 lg:border-x border-slate-100 lg:px-4 shrink-0 text-xs">
                     <div>
                       <span className="text-[11px] text-slate-400 block font-medium">Rental / Rate</span>
-                      <span className="font-semibold text-slate-800">₹{order.rentOrPricePerUnit}/unit</span>
+                      <span className="font-semibold text-slate-800 font-mono tabular-nums">₹{order.rentOrPricePerUnit}/unit</span>
                     </div>
 
                     <div>
                       <span className="text-[11px] text-slate-400 block font-medium">Deposit</span>
-                      <span className="font-semibold text-amber-700">₹{order.depositAmount}</span>
+                      <span className="font-semibold text-amber-700 font-mono tabular-nums">₹{order.depositAmount}</span>
                     </div>
 
                     <div>
                       <span className="text-[11px] text-slate-400 block font-medium">Total Bill</span>
-                      <span className="text-sm font-bold text-cyan-700">₹{order.totalAmount}</span>
+                      <span className="text-sm font-bold text-cyan-700 font-mono tabular-nums">₹{order.totalAmount}</span>
                     </div>
                   </div>
 
@@ -378,11 +389,11 @@ Thank you for booking!`;
                       </button>
                     )}
 
-                    {/* Send Bill to Customer (Requested Feature) */}
+                    {/* Send Bill to Customer */}
                     <button
                       onClick={() => handleSendBillDirect(order)}
                       id={`send-bill-btn-${order.id}`}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors cursor-pointer"
                       title="Send WhatsApp bill directly to customer"
                     >
                       <Share2 className="w-3.5 h-3.5" />
@@ -393,14 +404,14 @@ Thank you for booking!`;
                     <button
                       onClick={() => onOpenInvoice(order)}
                       id={`invoice-btn-${order.id}`}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors cursor-pointer"
                       title="View & Print Official Receipt"
                     >
                       <Printer className="w-3.5 h-3.5" />
                       <span>Invoice</span>
                     </button>
 
-                    {/* Modify in middle (Requested Feature) */}
+                    {/* Modify in middle */}
                     <button
                       onClick={() => onEditOrder(order)}
                       id={`edit-order-btn-${order.id}`}
@@ -427,7 +438,7 @@ Thank you for booking!`;
                   </div>
 
                 </div>
-              </div>
+              </CardSpotlight>
             );
           })
         )}

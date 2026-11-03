@@ -23,11 +23,17 @@ import {
   TrendingUp,
   FileSpreadsheet,
   MoreVertical,
-  QrCode
+  QrCode,
+  Home,
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { ActiveTab, Customer, InventoryItem, BusinessAccount, UserSessionProfile } from '../types';
 import { isRegisteredBusiness } from '../services/businessService';
 import { PWAInstallButton } from './PWAInstallButton';
+import { Button } from './ui/Button';
+import { useLanguage } from '../context/LanguageContext';
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -73,6 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
   userSession,
   onOpenBusinessModal
 }) => {
+  const { language, setLanguage, t } = useLanguage();
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   
@@ -80,6 +87,86 @@ export const Header: React.FC<HeaderProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const moreMenuContainerRef = useRef<HTMLDivElement>(null);
+
+  // Breadcrumb tab metadata lookup
+  const getTabInfo = (tab: ActiveTab) => {
+    switch (tab) {
+      case 'dashboard':
+        return { label: t.nav.dashboard || 'Dashboard', icon: LayoutDashboard };
+      case 'orders':
+        return { label: t.nav.orders || 'Orders', icon: Package };
+      case 'customers':
+        return { label: t.nav.customers || 'Customers', icon: Users };
+      case 'inventory':
+        return { label: t.nav.inventory || 'Inventory', icon: Boxes };
+      case 'driver_run':
+        return { label: t.nav.driverRun || 'Delivery Run', icon: Truck };
+      case 'operations':
+        return { label: 'Operations Hub', icon: Truck };
+      case 'team':
+        return { label: 'Staff & Team', icon: UserCheck };
+      case 'analytics':
+        return { label: 'Analytics', icon: TrendingUp };
+      default:
+        return { label: tab, icon: LayoutDashboard };
+    }
+  };
+
+  // Breadcrumb path tracking (tracks user's path e.g. Home > Dashboard > Analytics)
+  const [navPath, setNavPath] = useState<ActiveTab[]>(() => {
+    try {
+      const stored = sessionStorage.getItem('aquapure_nav_path');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return [activeTab];
+  });
+
+  // Keep navigation path updated as user browses
+  useEffect(() => {
+    setNavPath(prev => {
+      if (prev[prev.length - 1] === activeTab) return prev;
+
+      const existingIdx = prev.indexOf(activeTab);
+      let updated: ActiveTab[];
+      if (existingIdx !== -1) {
+        updated = prev.slice(0, existingIdx + 1);
+      } else {
+        if (prev.length >= 3) {
+          updated = [prev[0], prev[prev.length - 1], activeTab];
+        } else {
+          updated = [...prev, activeTab];
+        }
+      }
+
+      try {
+        sessionStorage.setItem('aquapure_nav_path', JSON.stringify(updated));
+      } catch {}
+
+      return updated;
+    });
+  }, [activeTab]);
+
+  const handleNavigateHome = () => {
+    setActiveTab('dashboard');
+    setNavPath(['dashboard']);
+    try {
+      sessionStorage.setItem('aquapure_nav_path', JSON.stringify(['dashboard']));
+    } catch {}
+  };
+
+  const handleNavigateBreadcrumb = (targetTab: ActiveTab, index: number) => {
+    setActiveTab(targetTab);
+    const updated = navPath.slice(0, index + 1);
+    setNavPath(updated);
+    try {
+      sessionStorage.setItem('aquapure_nav_path', JSON.stringify(updated));
+    } catch {}
+  };
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -238,10 +325,10 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="bg-white border-b border-slate-200/90 sticky top-0 z-30 shadow-2xs w-full">
       {/* Shared Page Container Alignment */}
-      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-2 sm:gap-3 lg:gap-4">
+      <div className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 bg-white">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-1.5 sm:gap-3 lg:gap-4">
           {/* Left: Brand Logo & Navigation */}
-          <div className="flex items-center gap-2 sm:gap-3 lg:gap-5 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 lg:gap-5 min-w-0 shrink">
             {/* Brand Logo & Business Title */}
             <div 
               id="header-business-badge"
@@ -253,7 +340,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }
               }}
               title={onOpenBusinessModal ? (!isRegistered ? "Click to register your business" : `Active Business: ${businessDisplayName} (${ownerNameDisplay}) - Click to switch or manage`) : "Business Management"}
-              className="flex items-center gap-2 sm:gap-2.5 p-1 rounded-xl hover:bg-slate-100/80 border border-transparent hover:border-slate-200/80 transition-all cursor-pointer select-none group shrink-0 min-w-0"
+              className="flex items-center gap-1.5 sm:gap-2.5 p-1 rounded-xl hover:bg-slate-100/80 border border-transparent hover:border-slate-200/80 transition-all cursor-pointer select-none group min-w-0"
             >
               <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white shadow-2xs transition-all shrink-0 ${
                 !isRegistered 
@@ -268,7 +355,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <span 
                     id="header-business-name-text"
                     title={businessDisplayName}
-                    className={`text-sm sm:text-base font-semibold sm:font-bold tracking-tight transition-colors truncate max-w-[120px] sm:max-w-[170px] md:max-w-[200px] lg:max-w-[240px] leading-tight select-none ${
+                    className={`text-xs xs:text-sm sm:text-base font-bold tracking-tight transition-colors truncate max-w-[100px] xs:max-w-[130px] sm:max-w-[170px] md:max-w-[200px] lg:max-w-[240px] leading-tight select-none ${
                       !isRegistered ? 'text-amber-700 group-hover:text-amber-800' : 'text-slate-900 group-hover:text-sky-600'
                     }`}
                   >
@@ -278,7 +365,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 shrink-0 transition-transform group-hover:translate-y-0.5" />
                   )}
                 </div>
-                <div className="flex items-center gap-1 text-[11px] leading-tight">
+                <div className="flex items-center gap-1 text-[10px] sm:text-[11px] leading-tight">
                   {!isRegistered ? (
                     <span className="text-amber-600 font-semibold flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
@@ -287,7 +374,7 @@ export const Header: React.FC<HeaderProps> = ({
                   ) : (
                     <span 
                       id="header-owner-name-badge"
-                      className={`font-semibold inline-flex items-center gap-0.5 truncate max-w-[100px] sm:max-w-[130px] ${
+                      className={`font-semibold inline-flex items-center gap-0.5 truncate max-w-[75px] xs:max-w-[90px] sm:max-w-[130px] ${
                         userSession?.role === 'WORKER' ? 'text-emerald-700' : 'text-slate-600'
                       }`}
                       title={ownerNameDisplay}
@@ -297,94 +384,184 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
                   {isRegistered && currentBusiness?.city && (
                     <>
-                      <span className="text-slate-300">•</span>
-                      <span className="text-slate-500 truncate max-w-[70px] sm:max-w-[100px]">{currentBusiness.city}</span>
+                      <span className="hidden sm:inline text-slate-300">•</span>
+                      <span className="hidden sm:inline text-slate-500 truncate max-w-[70px] sm:max-w-[100px]">{currentBusiness.city}</span>
                     </>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Desktop Navigation Tabs (6 Primary Links) */}
+            {/* Desktop Navigation Tabs */}
             <nav className="hidden md:flex items-center gap-0.5 bg-slate-100/90 p-0.5 sm:p-1 rounded-xl border border-slate-200/80 shrink-0">
               {userSession?.role === 'WORKER' ? (
-                <button
-                  id="nav-customers"
-                  onClick={() => setActiveTab('customers')}
-                  className="flex items-center gap-1.5 h-8 px-2.5 sm:px-3 text-xs font-bold rounded-lg transition-all cursor-pointer bg-white text-slate-900 shadow-2xs"
-                  title="Customers"
-                >
-                  <Users className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                  <span>Customers</span>
-                </button>
-              ) : (
                 <>
                   <button
-                    id="nav-dashboard"
-                    onClick={() => setActiveTab('dashboard')}
-                    className={`flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                      activeTab === 'dashboard'
-                        ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                    id="nav-driver-run"
+                    onClick={() => setActiveTab('driver_run')}
+                    className={`relative flex items-center gap-1.5 h-8 px-2.5 sm:px-3 text-xs font-bold rounded-lg transition-colors cursor-pointer select-none z-10 ${
+                      activeTab === 'driver_run'
+                        ? 'text-white'
+                        : 'text-slate-700 hover:text-slate-900'
                     }`}
-                    title="Dashboard"
+                    title="Active Delivery Run"
                   >
-                    <LayoutDashboard className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="hidden lg:inline">Dashboard</span>
-                  </button>
-
-                  <button
-                    id="nav-orders"
-                    onClick={() => setActiveTab('orders')}
-                    className={`flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                      activeTab === 'orders'
-                        ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                    }`}
-                    title="Orders"
-                  >
-                    <Package className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
-                    <span className="hidden lg:inline">Orders</span>
+                    {activeTab === 'driver_run' && (
+                      <motion.div
+                        layoutId="header-active-nav"
+                        className="absolute inset-0 bg-sky-600 rounded-lg shadow-2xs -z-10"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                      />
+                    )}
+                    <Truck className="w-3.5 h-3.5 shrink-0" />
+                    <span>Delivery Run</span>
                   </button>
 
                   <button
                     id="nav-customers"
                     onClick={() => setActiveTab('customers')}
-                    className={`flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`relative flex items-center gap-1.5 h-8 px-2.5 sm:px-3 text-xs font-bold rounded-lg transition-colors cursor-pointer select-none z-10 ${
                       activeTab === 'customers'
-                        ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                        ? 'text-slate-900'
+                        : 'text-slate-700 hover:text-slate-900'
                     }`}
                     title="Customers"
                   >
+                    {activeTab === 'customers' && (
+                      <motion.div
+                        layoutId="header-active-nav"
+                        className="absolute inset-0 bg-white rounded-lg shadow-2xs -z-10 border border-slate-200/60"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                      />
+                    )}
+                    <Users className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                    <span>Customers</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    id="nav-dashboard"
+                    onClick={() => setActiveTab('dashboard')}
+                    className={`relative flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs rounded-lg transition-colors cursor-pointer select-none z-10 ${
+                      activeTab === 'dashboard'
+                        ? 'text-slate-900 font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    title="Dashboard"
+                  >
+                    {activeTab === 'dashboard' && (
+                      <motion.div
+                        layoutId="header-active-nav"
+                        className="absolute inset-0 bg-white rounded-lg shadow-2xs -z-10 border border-slate-200/60"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                      />
+                    )}
+                    <LayoutDashboard className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span className="hidden lg:inline">{t.nav.dashboard}</span>
+                  </button>
+
+                  <button
+                    id="nav-driver-run"
+                    onClick={() => setActiveTab('driver_run')}
+                    className={`relative flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs rounded-lg transition-colors cursor-pointer select-none z-10 ${
+                      activeTab === 'driver_run'
+                        ? 'text-white font-bold'
+                        : 'text-sky-700 hover:text-sky-900'
+                    }`}
+                    title="Field Delivery Run"
+                  >
+                    {activeTab === 'driver_run' && (
+                      <motion.div
+                        layoutId="header-active-nav"
+                        className="absolute inset-0 bg-sky-600 rounded-lg shadow-2xs -z-10"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                      />
+                    )}
+                    <Truck className="w-3.5 h-3.5 shrink-0" />
+                    <span className="hidden lg:inline">{t.nav.driverRun}</span>
+                  </button>
+
+                  <button
+                    id="nav-orders"
+                    onClick={() => setActiveTab('orders')}
+                    className={`relative flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs rounded-lg transition-colors cursor-pointer select-none z-10 ${
+                      activeTab === 'orders'
+                        ? 'text-slate-900 font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    title="Orders"
+                  >
+                    {activeTab === 'orders' && (
+                      <motion.div
+                        layoutId="header-active-nav"
+                        className="absolute inset-0 bg-white rounded-lg shadow-2xs -z-10 border border-slate-200/60"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                      />
+                    )}
+                    <Package className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
+                    <span className="hidden lg:inline">{t.nav.orders}</span>
+                  </button>
+
+                  <button
+                    id="nav-customers"
+                    onClick={() => setActiveTab('customers')}
+                    className={`relative flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs rounded-lg transition-colors cursor-pointer select-none z-10 ${
+                      activeTab === 'customers'
+                        ? 'text-slate-900 font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                    title="Customers"
+                  >
+                    {activeTab === 'customers' && (
+                      <motion.div
+                        layoutId="header-active-nav"
+                        className="absolute inset-0 bg-white rounded-lg shadow-2xs -z-10 border border-slate-200/60"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                      />
+                    )}
                     <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="hidden lg:inline">Customers</span>
+                    <span className="hidden lg:inline">{t.nav.customers}</span>
                   </button>
 
                   <button
                     id="nav-inventory"
                     onClick={() => setActiveTab('inventory')}
-                    className={`flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`relative flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs rounded-lg transition-colors cursor-pointer select-none z-10 ${
                       activeTab === 'inventory'
-                        ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                        ? 'text-slate-900 font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                     title="Inventory"
                   >
+                    {activeTab === 'inventory' && (
+                      <motion.div
+                        layoutId="header-active-nav"
+                        className="absolute inset-0 bg-white rounded-lg shadow-2xs -z-10 border border-slate-200/60"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                      />
+                    )}
                     <Boxes className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span className="hidden lg:inline">Inventory</span>
+                    <span className="hidden lg:inline">{t.nav.inventory}</span>
                   </button>
 
                   <button
                     id="nav-team"
                     onClick={() => setActiveTab('team')}
-                    className={`flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`relative flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs rounded-lg transition-colors cursor-pointer select-none z-10 ${
                       activeTab === 'team'
-                        ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                        ? 'text-slate-900 font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                     title="Staff / Team"
                   >
+                    {activeTab === 'team' && (
+                      <motion.div
+                        layoutId="header-active-nav"
+                        className="absolute inset-0 bg-white rounded-lg shadow-2xs -z-10 border border-slate-200/60"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                      />
+                    )}
                     <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span className="hidden lg:inline">Staff</span>
                   </button>
@@ -392,13 +569,20 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     id="nav-analytics"
                     onClick={() => setActiveTab('analytics')}
-                    className={`flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    className={`relative flex items-center gap-1.5 h-8 px-2 xl:px-2.5 text-xs rounded-lg transition-colors cursor-pointer select-none z-10 ${
                       activeTab === 'analytics'
-                        ? 'bg-white text-sky-800 shadow-2xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                        ? 'text-sky-800 font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                     title="Analytics"
                   >
+                    {activeTab === 'analytics' && (
+                      <motion.div
+                        layoutId="header-active-nav"
+                        className="absolute inset-0 bg-white rounded-lg shadow-2xs -z-10 border border-slate-200/60"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                      />
+                    )}
                     <TrendingUp className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                     <span className="hidden lg:inline">Analytics</span>
                   </button>
@@ -415,7 +599,7 @@ export const Header: React.FC<HeaderProps> = ({
                 ref={searchInputRef}
                 id="global-header-search-desktop"
                 type="text"
-                placeholder="Search..."
+                placeholder={t.common.searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => {
                   onSearchChange(e.target.value);
@@ -631,29 +815,71 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Right: Consolidated Actions & Unified Menu */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Primary Action CTA: Record Delivery */}
-            <button
-              id="header-new-delivery-btn"
-              onClick={() => onOpenNewDelivery()}
-              className="inline-flex items-center gap-1.5 h-9 px-2.5 sm:px-3.5 text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700 active:bg-sky-800 rounded-lg shadow-2xs transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-              title="Record New Delivery"
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Top Navigation Bar Language Switcher (English / ગુજરાતી) */}
+            <div 
+              id="top-nav-language-switcher"
+              className="flex items-center bg-slate-100/90 p-0.5 rounded-xl border border-slate-200/90 shadow-2xs shrink-0" 
+              role="group" 
+              aria-label="Language selection"
             >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5] shrink-0" />
-              <span className="hidden sm:inline">Record Delivery</span>
-              <span className="sm:hidden">Delivery</span>
-            </button>
+              <button
+                type="button"
+                id="lang-btn-en"
+                onClick={() => setLanguage('en')}
+                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  language === 'en'
+                    ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Switch to English"
+              >
+                <span className="sm:hidden">EN</span>
+                <span className="hidden sm:inline">English</span>
+              </button>
+              <button
+                type="button"
+                id="lang-btn-gu"
+                onClick={() => setLanguage('gu')}
+                className={`px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  language === 'gu'
+                    ? 'bg-sky-600 text-white shadow-2xs font-extrabold'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="ગુજરાતી ભાષા પસંદ કરો"
+              >
+                <span className="sm:hidden">ગુ</span>
+                <span className="hidden sm:inline">ગુજરાતી</span>
+              </button>
+            </div>
+
+            {/* Primary Action CTA: Record Delivery */}
+            <Button
+              id="header-new-delivery-btn"
+              variant="primary"
+              size="sm"
+              glow
+              leftIcon={<Plus className="w-3.5 h-3.5 stroke-[2.5]" />}
+              onClick={() => onOpenNewDelivery()}
+              title={t.nav.recordDelivery}
+              className="whitespace-nowrap px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs font-bold shrink-0"
+            >
+              <span className="hidden sm:inline">{t.nav.recordDelivery}</span>
+              <span className="sm:hidden">{t.nav.delivery}</span>
+            </Button>
 
             {/* Consolidated Actions & Tools Menu (More ⋮) */}
             <div className="relative shrink-0" ref={moreMenuContainerRef}>
-              <button
+              <Button
                 id="header-more-menu-btn"
+                variant="secondary"
+                size="icon"
                 onClick={() => setIsMoreMenuOpen(prev => !prev)}
-                className="inline-flex items-center justify-center w-9 h-9 text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-lg shadow-2xs transition-colors cursor-pointer"
                 title="Tools, Payment & Business Actions"
+                className="h-8 w-8 sm:h-9 sm:w-9"
               >
                 <MoreVertical className="w-4 h-4 text-slate-600" />
-              </button>
+              </Button>
 
               {isMoreMenuOpen && (
                 <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
@@ -707,7 +933,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer text-left"
                     >
                       <Boxes className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Restock Inventory</span>
+                      <span>{t.nav.restock}</span>
                     </button>
                   )}
 
@@ -722,7 +948,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer text-left"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Export & Google Sheets</span>
+                      <span>{language === 'gu' ? 'એકાઉન્ટિંગ એક્સપોર્ટ' : 'Export & Google Sheets'}</span>
                     </button>
                   )}
 
@@ -730,10 +956,10 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="flex items-center justify-between px-2.5 py-2 text-xs text-slate-600">
                     <span className="flex items-center gap-2">
                       {isOnline ? <Cloud className="w-3.5 h-3.5 text-emerald-600" /> : <CloudOff className="w-3.5 h-3.5 text-amber-500" />}
-                      <span>Cloud Sync</span>
+                      <span>{language === 'gu' ? 'ક્લાઉડ સિન્ક' : 'Cloud Sync'}</span>
                     </span>
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                      {isOnline ? 'Active' : 'Offline'}
+                      {isOnline ? (language === 'gu' ? 'સક્રિય' : 'Active') : (language === 'gu' ? 'ઑફલાઇન' : 'Offline')}
                     </span>
                   </div>
 
@@ -748,9 +974,9 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <span className="flex items-center gap-2 truncate">
                         <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                        <span className="truncate">{currentBusiness?.name ? `Business: ${currentBusiness.name}` : 'Manage Business'}</span>
+                        <span className="truncate">{currentBusiness?.name ? `${language === 'gu' ? 'વેપાર: ' : 'Business: '}${currentBusiness.name}` : t.nav.manageBusiness}</span>
                       </span>
-                      <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-1">Switch</span>
+                      <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-1">{language === 'gu' ? 'બદલો' : 'Switch'}</span>
                     </button>
                   )}
 
@@ -771,7 +997,7 @@ export const Header: React.FC<HeaderProps> = ({
                         className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer text-left"
                       >
                         <LogOut className="w-3.5 h-3.5 text-rose-600" />
-                        <span>Logout</span>
+                        <span>{t.nav.logout}</span>
                       </button>
                     ) : (
                       <button
@@ -787,12 +1013,139 @@ export const Header: React.FC<HeaderProps> = ({
                         className="w-full flex items-center gap-2 px-2.5 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer text-left"
                       >
                         <LogIn className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Sign In / Manager</span>
+                        <span>{t.nav.signIn}</span>
                       </button>
                     )}
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Breadcrumb Navigation Trail Sub-Bar */}
+        <div 
+          id="header-breadcrumb-sub-bar" 
+          className="border-t border-slate-100/90 py-1 sm:py-1.5 flex items-center min-h-[30px] sm:min-h-[32px] overflow-hidden select-none"
+        >
+          {/* Desktop View: Full interactive breadcrumb trail */}
+          <nav aria-label="Breadcrumb" className="hidden sm:flex items-center justify-between w-full min-w-0">
+            <ol className="flex items-center gap-1 list-none m-0 p-0 text-xs min-w-0">
+              {/* Home Segment */}
+              <li className="flex items-center shrink-0">
+                <button
+                  type="button"
+                  id="breadcrumb-home-btn"
+                  onClick={handleNavigateHome}
+                  className={`inline-flex items-center gap-1.5 py-0.5 px-1.5 rounded-md font-medium transition-colors cursor-pointer ${
+                    activeTab === 'dashboard' && navPath.length === 1
+                      ? 'text-slate-900 font-semibold hover:bg-slate-100/60'
+                      : 'text-slate-500 hover:text-sky-600 hover:bg-slate-100/80'
+                  }`}
+                  title="Return to Home Dashboard"
+                >
+                  <Home className="w-3.5 h-3.5 text-slate-400 group-hover:text-sky-600 shrink-0" />
+                  <span>{t.nav.home || 'Home'}</span>
+                </button>
+              </li>
+
+              {/* Path Segments */}
+              {navPath.map((tab, idx) => {
+                const info = getTabInfo(tab);
+                const isCurrent = idx === navPath.length - 1;
+                const IconComponent = info.icon;
+
+                return (
+                  <React.Fragment key={`${tab}-${idx}`}>
+                    <li className="flex items-center text-slate-300 shrink-0 select-none" aria-hidden="true">
+                      <ChevronRight className="w-3 h-3 text-slate-400" />
+                    </li>
+                    <li className="flex items-center min-w-0">
+                      {isCurrent ? (
+                        <span
+                          id={`breadcrumb-item-current-${tab}`}
+                          className="inline-flex items-center gap-1.5 py-0.5 px-1.5 font-semibold text-slate-900 truncate max-w-[200px]"
+                          aria-current="page"
+                        >
+                          <IconComponent className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                          <span className="truncate">{info.label}</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          id={`breadcrumb-item-link-${tab}`}
+                          onClick={() => handleNavigateBreadcrumb(tab, idx)}
+                          className="inline-flex items-center gap-1.5 py-0.5 px-1.5 rounded-md font-medium text-slate-500 hover:text-sky-600 hover:bg-slate-100/80 transition-colors cursor-pointer truncate max-w-[180px]"
+                          title={`Navigate to ${info.label}`}
+                        >
+                          <IconComponent className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{info.label}</span>
+                        </button>
+                      )}
+                    </li>
+                  </React.Fragment>
+                );
+              })}
+            </ol>
+
+            {/* Contextual unboxed metadata on right (anti-slop clean typography) */}
+            <div className="flex items-center gap-2 text-[11px] text-slate-400 shrink-0 select-none">
+              {currentBusiness?.name && (
+                <>
+                  <span className="truncate max-w-[140px] text-slate-500 font-medium">{currentBusiness.name}</span>
+                  <span aria-hidden="true" className="text-slate-300">·</span>
+                </>
+              )}
+              <span className="inline-flex items-center gap-1 text-slate-500">
+                <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <span>{isOnline ? 'Cloud Synced' : 'Offline Mode'}</span>
+              </span>
+            </div>
+          </nav>
+
+          {/* Mobile View: Compact trail with back link and current page */}
+          <div className="sm:hidden flex items-center justify-between w-full min-w-0">
+            {navPath.length > 1 || activeTab !== 'dashboard' ? (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <button
+                  type="button"
+                  id="mobile-breadcrumb-back-btn"
+                  onClick={() => {
+                    if (navPath.length > 1) {
+                      handleNavigateBreadcrumb(navPath[navPath.length - 2], navPath.length - 2);
+                    } else {
+                      handleNavigateHome();
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-sky-600 active:text-sky-700 transition-colors py-0.5 px-1.5 rounded-md hover:bg-slate-100/80 cursor-pointer shrink-0"
+                  title="Go to previous section"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="truncate max-w-[90px] xs:max-w-[120px]">
+                    {t.common.back || 'Back'} {navPath.length > 1 ? `(${getTabInfo(navPath[navPath.length - 2]).label})` : ''}
+                  </span>
+                </button>
+                <span className="text-slate-300 shrink-0 select-none" aria-hidden="true">/</span>
+                <div 
+                  id="mobile-breadcrumb-current"
+                  className="flex items-center gap-1 min-w-0 font-semibold text-slate-900 text-[11px]" 
+                  aria-current="page"
+                >
+                  {React.createElement(getTabInfo(activeTab).icon, { className: 'w-3.5 h-3.5 text-sky-600 shrink-0' })}
+                  <span className="truncate max-w-[130px] xs:max-w-[160px]">{getTabInfo(activeTab).label}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-700 min-w-0">
+                <Home className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                <span className="font-semibold text-slate-900" aria-current="page">{t.nav.dashboard || 'Dashboard'}</span>
+              </div>
+            )}
+
+            {/* Mobile Status Indicator */}
+            <div className="flex items-center gap-1 text-[10px] text-slate-400 shrink-0">
+              <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <span>{isOnline ? 'Live' : 'Offline'}</span>
             </div>
           </div>
         </div>
@@ -804,7 +1157,7 @@ export const Header: React.FC<HeaderProps> = ({
             <input
               ref={mobileSearchInputRef}
               type="text"
-              placeholder="Search customers or inventory..."
+              placeholder={t.common.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => {
                 onSearchChange(e.target.value);
@@ -826,8 +1179,8 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Mobile Navigation Bar for Owner (Horizontal scrollable with no-scrollbar) */}
         {userSession?.role !== 'WORKER' && (
-          <div id="mobile-owner-nav-bar" className="md:hidden pb-2.5 pt-0.5 overflow-x-auto no-scrollbar">
-            <div className="flex items-center gap-1.5 min-w-max px-0.5">
+          <div id="mobile-owner-nav-bar" className="md:hidden pb-2.5 pt-0.5 overflow-x-auto no-scrollbar -mx-3 px-3">
+            <div className="flex items-center gap-1.5 min-w-max">
               <button
                 id="mobile-nav-dashboard"
                 onClick={() => setActiveTab('dashboard')}

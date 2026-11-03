@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ActiveTab, BusinessAccount, UserSessionProfile } from '../types';
 import { PWAInstallButton } from './PWAInstallButton';
+import { useLanguage } from '../context/LanguageContext';
 
 interface MobileBottomNavProps {
   activeTab: ActiveTab;
@@ -44,6 +45,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   currentBusiness,
   userSession,
 }) => {
+  const { t, isGujarati } = useLanguage();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const handleSelectTab = (tab: ActiveTab) => {
@@ -97,6 +99,23 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
             {/* Grid of secondary features */}
             <div className="mt-3.5 grid grid-cols-2 gap-2.5">
+              <button
+                onClick={() => handleSelectTab('driver_run')}
+                className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'driver_run'
+                    ? 'bg-sky-50/90 border-sky-300 text-sky-900 shadow-xs'
+                    : 'bg-slate-50/80 hover:bg-slate-100 border-slate-200/80 text-slate-800'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center">
+                  <Truck className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold block text-slate-900">{t.nav.driverRun}</span>
+                  <span className="text-[11px] text-slate-500">{isGujarati ? 'રૂટ રનર અને ૧-ટેપ ડિલિવરી' : 'Route runner & 1-tap drops'}</span>
+                </div>
+              </button>
+
               {!isWorker && (
                 <button
                   onClick={() => handleSelectTab('analytics')}
@@ -110,8 +129,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     <TrendingUp className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-xs font-bold block text-slate-900">30D Analytics</span>
-                    <span className="text-[11px] text-slate-500">Sales, revenue & charts</span>
+                    <span className="text-xs font-bold block text-slate-900">{isGujarati ? '૩૦ દિવસ એનાલિટિક્સ' : '30D Analytics'}</span>
+                    <span className="text-[11px] text-slate-500">{isGujarati ? 'વેચાણ, આવક અને ચાર્ટ્સ' : 'Sales, revenue & charts'}</span>
                   </div>
                 </button>
               )}
@@ -128,8 +147,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <Boxes className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="text-xs font-bold block text-slate-900">Warehouse Stock</span>
-                  <span className="text-[11px] text-slate-500">{isWorker ? 'Check stock levels' : 'Restock & track jars'}</span>
+                  <span className="text-xs font-bold block text-slate-900">{t.nav.inventory}</span>
+                  <span className="text-[11px] text-slate-500">{isGujarati ? 'સ્ટોક લેવલ તપાસો' : (isWorker ? 'Check stock levels' : 'Restock & track jars')}</span>
                 </div>
               </button>
 
@@ -146,8 +165,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     <UserCheck className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="text-xs font-bold block text-slate-900">Delivery Staff</span>
-                    <span className="text-[11px] text-slate-500">Manage drivers & PINs</span>
+                    <span className="text-xs font-bold block text-slate-900">{isGujarati ? 'ડિલિવરી સ્ટાફ' : 'Delivery Staff'}</span>
+                    <span className="text-[11px] text-slate-500">{isGujarati ? 'ડ્રાઈવર અને પિન મેનેજમેન્ટ' : 'Manage drivers & PINs'}</span>
                   </div>
                 </button>
               )}
@@ -163,8 +182,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <CalendarDays className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="text-xs font-bold block text-sky-950">Book Cooler Order</span>
-                  <span className="text-[11px] text-sky-700">Events & Dispenser</span>
+                  <span className="text-xs font-bold block text-sky-950">{isGujarati ? 'નવો ઓર્ડર બુક કરો' : 'Book Cooler Order'}</span>
+                  <span className="text-[11px] text-sky-700">{isGujarati ? 'ઈવેન્ટ અને ડિસ્પેન્સર' : 'Events & Dispenser'}</span>
                 </div>
               </button>
             </div>
@@ -180,7 +199,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold transition-colors cursor-pointer"
                 >
                   <Store className="w-4 h-4 text-slate-600" />
-                  <span>Switch Business</span>
+                  <span>{t.nav.switchBusiness}</span>
                 </button>
               )}
 
@@ -194,7 +213,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   className="flex items-center gap-1.5 text-rose-700 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 px-3.5 py-2 rounded-xl font-bold transition-colors cursor-pointer"
                 >
                   <LogOut className="w-4 h-4 text-rose-600" />
-                  <span>Sign Out</span>
+                  <span>{t.nav.logout}</span>
                 </button>
               )}
             </div>
@@ -224,7 +243,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 <div className={`p-1.5 rounded-xl transition-all ${activeTab === 'customers' ? 'bg-sky-50 text-sky-600' : 'text-slate-500'}`}>
                   <Users className="w-5 h-5 stroke-[2.2]" />
                 </div>
-                <span className="text-[10px] tracking-tight mt-0.5">Customers</span>
+                <span className="text-[10px] tracking-tight mt-0.5">{t.nav.customers}</span>
               </button>
 
               {/* Primary Quick Delivery Action (Elevated Floating Center Button) */}
@@ -236,7 +255,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-sky-600 via-sky-500 to-cyan-500 text-white flex flex-col items-center justify-center shadow-lg shadow-sky-600/30 hover:shadow-sky-600/40 active:scale-95 transition-all cursor-pointer border-3 border-white ring-1 ring-slate-100"
                 >
                   <Truck className="w-5 h-5 stroke-[2.2]" />
-                  <span className="text-[8.5px] font-extrabold tracking-tight -mt-0.5">DISPATCH</span>
+                  <span className="text-[8.5px] font-extrabold tracking-tight -mt-0.5">{t.nav.dispatch}</span>
                 </button>
               </div>
 
@@ -249,7 +268,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <div className="p-1.5 rounded-xl text-slate-500">
                     <Store className="w-5 h-5 stroke-[2]" />
                   </div>
-                  <span className="text-[10px] tracking-tight mt-0.5">Account</span>
+                  <span className="text-[10px] tracking-tight mt-0.5">{t.nav.account}</span>
                 </button>
               )}
 
@@ -263,7 +282,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <div className="p-1.5 rounded-xl text-rose-500">
                     <LogOut className="w-5 h-5 stroke-[2]" />
                   </div>
-                  <span className="text-[10px] font-semibold tracking-tight mt-0.5">Logout</span>
+                  <span className="text-[10px] font-semibold tracking-tight mt-0.5">{t.nav.logout}</span>
                 </button>
               )}
             </>
@@ -282,7 +301,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 <div className={`p-1.5 rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-sky-50 text-sky-600' : 'text-slate-500'}`}>
                   <LayoutDashboard className="w-5 h-5 stroke-[2]" />
                 </div>
-                <span className="text-[10px] tracking-tight mt-0.5">Home</span>
+                <span className="text-[10px] tracking-tight mt-0.5">{t.nav.home}</span>
               </button>
 
               {/* Orders */}
@@ -303,7 +322,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] tracking-tight mt-0.5">Orders</span>
+                <span className="text-[10px] tracking-tight mt-0.5">{t.nav.orders}</span>
               </button>
 
               {/* Primary Quick Delivery Action (Elevated Floating Center Button) */}
@@ -315,7 +334,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-sky-600 via-sky-500 to-cyan-500 text-white flex flex-col items-center justify-center shadow-lg shadow-sky-600/30 hover:shadow-sky-600/40 active:scale-95 transition-all cursor-pointer border-3 border-white ring-1 ring-slate-100"
                 >
                   <Plus className="w-5 h-5 stroke-[2.5]" />
-                  <span className="text-[8.5px] font-extrabold tracking-tight -mt-0.5">DELIVER</span>
+                  <span className="text-[8.5px] font-extrabold tracking-tight -mt-0.5">{t.nav.deliver}</span>
                 </button>
               </div>
 
@@ -332,7 +351,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 <div className={`p-1.5 rounded-xl transition-all ${activeTab === 'customers' ? 'bg-sky-50 text-sky-600' : 'text-slate-500'}`}>
                   <Users className="w-5 h-5 stroke-[2]" />
                 </div>
-                <span className="text-[10px] tracking-tight mt-0.5">Clients</span>
+                <span className="text-[10px] tracking-tight mt-0.5">{t.nav.clients}</span>
               </button>
 
               {/* More Drawer Trigger */}
@@ -348,7 +367,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 <div className={`p-1.5 rounded-xl transition-all ${isMoreOpen || activeTab === 'inventory' || activeTab === 'team' || activeTab === 'analytics' ? 'bg-sky-50 text-sky-600' : 'text-slate-500'}`}>
                   <MoreHorizontal className="w-5 h-5 stroke-[2]" />
                 </div>
-                <span className="text-[10px] tracking-tight mt-0.5">More</span>
+                <span className="text-[10px] tracking-tight mt-0.5">{t.nav.more}</span>
               </button>
             </>
           )}

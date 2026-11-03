@@ -41,6 +41,7 @@ import {
   Check
 } from 'lucide-react';
 import { DeliveryLog, TransactionRecord, Customer, InventoryItem, OrderBooking, BusinessAccount, ActiveTab } from '../types';
+import { CardSpotlight } from './ui/CardSpotlight';
 import { 
   signInWithGoogleSheets, 
   syncLogsToGoogleSheet, 
@@ -501,7 +502,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Settled Revenue */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-sm transition-all">
+        <CardSpotlight spotlightColor="rgba(16, 185, 129, 0.12)" className="p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Settled Revenue</span>
             <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
@@ -509,21 +510,21 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-slate-900">
+            <span className="text-2xl font-extrabold text-slate-900 font-mono tabular-nums">
               ₹{kpis.totalSettledRevenue.toLocaleString('en-IN')}
             </span>
             <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
               Settled
             </span>
           </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <span>UPI: <strong className="text-slate-800">₹{kpis.upiRevenue.toLocaleString('en-IN')}</strong></span>
-            <span>Cash: <strong className="text-slate-800">₹{kpis.cashRevenue.toLocaleString('en-IN')}</strong></span>
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+            <span>UPI: <strong className="text-slate-800 font-mono tabular-nums">₹{kpis.upiRevenue.toLocaleString('en-IN')}</strong></span>
+            <span>Cash: <strong className="text-slate-800 font-mono tabular-nums">₹{kpis.cashRevenue.toLocaleString('en-IN')}</strong></span>
           </div>
-        </div>
+        </CardSpotlight>
 
         {/* KPI 2: Total Jars Delivered */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-sm transition-all">
+        <CardSpotlight spotlightColor="rgba(2, 132, 199, 0.12)" className="p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Jars Delivered</span>
             <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center">
@@ -531,18 +532,18 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-slate-900">
-              {kpis.totalJarsDelivered.toLocaleString('en-IN')} <span className="text-sm font-semibold text-slate-500">Jars</span>
+            <span className="text-2xl font-extrabold text-slate-900 font-mono tabular-nums">
+              {kpis.totalJarsDelivered.toLocaleString('en-IN')} <span className="text-sm font-semibold text-slate-500 font-sans">Jars</span>
             </span>
           </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
             <span>{kpis.totalTrips} Dispatches</span>
-            <span>Avg: <strong className="text-slate-800">{kpis.averageJarsPerDay} jars/day</strong></span>
+            <span>Avg: <strong className="text-slate-800 font-mono tabular-nums">{kpis.averageJarsPerDay} jars/day</strong></span>
           </div>
-        </div>
+        </CardSpotlight>
 
         {/* KPI 3: Bottle Return Efficiency */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-sm transition-all">
+        <CardSpotlight spotlightColor="rgba(6, 182, 212, 0.12)" className="p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Bottle Return Rate</span>
             <div className="w-8 h-8 rounded-lg bg-cyan-100 text-cyan-700 flex items-center justify-center">
@@ -550,21 +551,21 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-slate-900">
+            <span className="text-2xl font-extrabold text-slate-900 font-mono tabular-nums">
               {kpis.returnEfficiency}%
             </span>
             <span className="text-[11px] font-medium text-cyan-800 bg-cyan-50 px-1.5 py-0.5 rounded">
               Rotation
             </span>
           </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Collected: <strong className="text-slate-800">{kpis.totalEmptyCollected} empty</strong></span>
-            <span>Active in Market: <strong className="text-slate-800">{Math.max(0, kpis.totalJarsDelivered - kpis.totalEmptyCollected)}</strong></span>
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
+            <span>Collected: <strong className="text-slate-800 font-mono tabular-nums">{kpis.totalEmptyCollected} empty</strong></span>
+            <span>Active in Market: <strong className="text-slate-800 font-mono tabular-nums">{Math.max(0, kpis.totalJarsDelivered - kpis.totalEmptyCollected)}</strong></span>
           </div>
-        </div>
+        </CardSpotlight>
 
         {/* KPI 4: Due Recovery & Daily Run Rate */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-sm transition-all">
+        <CardSpotlight spotlightColor="rgba(245, 158, 11, 0.14)" className="p-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Daily Run Rate</span>
             <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
@@ -572,19 +573,19 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-slate-900">
+            <span className="text-2xl font-extrabold text-slate-900 font-mono tabular-nums">
               ₹{kpis.averageDailyRevenue.toLocaleString('en-IN')}
             </span>
             <span className="text-xs text-slate-500 font-medium">/ day</span>
           </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-medium">
             <span>Peak Day: <strong className="text-slate-800">{kpis.peakDay.date} ({kpis.peakDay.jars} jars)</strong></span>
           </div>
-        </div>
+        </CardSpotlight>
       </div>
 
       {/* Main Charts Row 1: Delivery Trends (Last 30 Days) */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs">
+      <CardSpotlight spotlightColor="rgba(2, 132, 199, 0.08)" className="p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -670,12 +671,12 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
             </AreaChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </CardSpotlight>
 
       {/* Main Charts Row 2: Revenue from Settled Transactions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Revenue Breakdown & Trend */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs">
+        <CardSpotlight spotlightColor="rgba(16, 185, 129, 0.08)" className="lg:col-span-2 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -801,10 +802,10 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
               )}
             </ResponsiveContainer>
           </div>
-        </div>
+        </CardSpotlight>
 
         {/* Right 1 Col: Payment Mode Share (Pie Chart) */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+        <CardSpotlight spotlightColor="rgba(99, 102, 241, 0.08)" className="p-6 flex flex-col justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-sky-600" />
@@ -851,20 +852,20 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
                     <span className="font-medium text-slate-700">{item.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">₹{item.value.toLocaleString('en-IN')}</span>
-                    <span className="text-[10px] text-slate-400">({pct}%)</span>
+                    <span className="font-bold text-slate-900 font-mono tabular-nums">₹{item.value.toLocaleString('en-IN')}</span>
+                    <span className="text-[10px] text-slate-400 font-mono tabular-nums">({pct}%)</span>
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
+        </CardSpotlight>
       </div>
 
       {/* Row 3: Product Breakdown & Client Segments */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Product Delivery Volume Breakdown */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs">
+        <CardSpotlight spotlightColor="rgba(6, 182, 212, 0.08)" className="p-6">
           <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
             <Package className="w-4 h-4 text-cyan-600" />
             <span>Volume by Item Category</span>
@@ -881,7 +882,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
                 <div key={item.fullName} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-slate-800">{item.fullName}</span>
-                    <span className="font-bold text-slate-900">{item.count} units ({pct}%)</span>
+                    <span className="font-bold text-slate-900 font-mono tabular-nums">{item.count} units ({pct}%)</span>
                   </div>
                   <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                     <div 
@@ -893,10 +894,10 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
               );
             })}
           </div>
-        </div>
+        </CardSpotlight>
 
         {/* Customer Segment Breakdown: Commercial vs Residential */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col justify-between">
+        <CardSpotlight spotlightColor="rgba(2, 132, 199, 0.08)" className="p-6 flex flex-col justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Building2 className="w-4 h-4 text-sky-600" />
@@ -908,30 +909,30 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
 
             <div className="grid grid-cols-2 gap-3">
               {/* Commercial Box */}
-              <div className="p-4 rounded-xl bg-sky-50/70 border border-sky-200/80">
+              <div className="p-4 rounded-xl bg-sky-50/70 border border-sky-200/80 shadow-2xs">
                 <div className="flex items-center gap-2 text-sky-900 font-bold text-xs">
                   <Building2 className="w-4 h-4 text-sky-700" />
                   <span>Commercial Clients</span>
                 </div>
-                <div className="mt-2 text-xl font-extrabold text-sky-950">
-                  {customerTypeStats.commercialJars} <span className="text-xs font-semibold text-sky-700">Jars</span>
+                <div className="mt-2 text-xl font-extrabold text-sky-950 font-mono tabular-nums">
+                  {customerTypeStats.commercialJars} <span className="text-xs font-semibold text-sky-700 font-sans">Jars</span>
                 </div>
-                <div className="text-[11px] text-sky-800 mt-1">
-                  Revenue: <strong>₹{customerTypeStats.commercialRevenue.toLocaleString('en-IN')}</strong>
+                <div className="text-[11px] text-sky-800 mt-1 font-medium">
+                  Revenue: <strong className="font-mono tabular-nums">₹{customerTypeStats.commercialRevenue.toLocaleString('en-IN')}</strong>
                 </div>
               </div>
 
               {/* Residential Box */}
-              <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+              <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200/80 shadow-2xs">
                 <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
                   <Home className="w-4 h-4 text-emerald-700" />
                   <span>Residential Societies</span>
                 </div>
-                <div className="mt-2 text-xl font-extrabold text-emerald-950">
-                  {customerTypeStats.residentialJars} <span className="text-xs font-semibold text-emerald-700">Jars</span>
+                <div className="mt-2 text-xl font-extrabold text-emerald-950 font-mono tabular-nums">
+                  {customerTypeStats.residentialJars} <span className="text-xs font-semibold text-emerald-700 font-sans">Jars</span>
                 </div>
-                <div className="text-[11px] text-emerald-800 mt-1">
-                  Revenue: <strong>₹{customerTypeStats.residentialRevenue.toLocaleString('en-IN')}</strong>
+                <div className="text-[11px] text-emerald-800 mt-1 font-medium">
+                  Revenue: <strong className="font-mono tabular-nums">₹{customerTypeStats.residentialRevenue.toLocaleString('en-IN')}</strong>
                 </div>
               </div>
             </div>
@@ -948,11 +949,11 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
               </button>
             )}
           </div>
-        </div>
+        </CardSpotlight>
       </div>
 
       {/* Row 4: Settled Transactions Audit Table */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-2xs">
+      <CardSpotlight spotlightColor="rgba(16, 185, 129, 0.08)" className="p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -1044,7 +1045,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
                         {tx.paymentMode}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-right font-extrabold text-slate-900 whitespace-nowrap">
+                    <td className="py-2.5 px-3 text-right font-extrabold text-slate-900 whitespace-nowrap font-mono tabular-nums">
                       ₹{tx.amount.toLocaleString('en-IN')}
                     </td>
                     <td className="py-2.5 px-3 text-center">
@@ -1059,7 +1060,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
             </tbody>
           </table>
         </div>
-      </div>
+      </CardSpotlight>
 
       {/* Google Sheets Sync Modal */}
       {isGoogleSheetsSyncOpen && (

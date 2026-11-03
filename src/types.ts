@@ -138,4 +138,58 @@ export interface UserSessionProfile {
   workerRecord?: BusinessWorker;
 }
 
-export type ActiveTab = 'dashboard' | 'orders' | 'customers' | 'inventory' | 'team' | 'analytics';
+export type TripStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+
+export interface DeliveryTrip {
+  id: string;
+  businessId: string;
+  driverPhone: string;
+  driverName: string;
+  vehicleNumber?: string;
+  routeName: string;
+  loadedFullJars: number;
+  deliveredFullJars: number;
+  collectedEmptyJars: number;
+  remainingFullJars: number;
+  cashCollected: number;
+  onlineCollected: number;
+  totalCollected: number;
+  status: TripStatus;
+  startTime: number;
+  endTime?: number;
+  notes?: string;
+  completedCustomerIds: string[];
+}
+
+export type ScheduleFrequency = 'DAILY' | 'ALTERNATE' | 'WEEKDAYS' | 'WEEKLY' | 'CUSTOM';
+
+export interface CustomerSchedule {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  frequency: ScheduleFrequency;
+  customDays?: number[]; // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  defaultQuantity: number;
+  itemType: string;
+  preferredRoute: string;
+  active: boolean;
+  lastDeliveredDate?: string;
+}
+
+export type ExpenseCategory = 'FUEL' | 'MAINTENANCE' | 'PLANT_UTILITIES' | 'STAFF_WAGES' | 'OTHER';
+
+export interface FieldExpense {
+  id: string;
+  businessId: string;
+  category: ExpenseCategory;
+  amount: number;
+  description: string;
+  loggedBy: string;
+  timestamp: number;
+  vehicleNumber?: string;
+  receiptUrl?: string;
+}
+
+export type ActiveTab = 'dashboard' | 'driver_run' | 'operations' | 'orders' | 'customers' | 'inventory' | 'team' | 'analytics';

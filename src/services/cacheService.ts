@@ -40,10 +40,29 @@ export async function purgeAllAppCaches(): Promise<boolean> {
     try {
       const registrations = await navigator.serviceWorker.getRegistrations();
       for (const registration of registrations) {
-        await registration.update();
+        const scriptUrl = registration.active?.scriptURL || registration.installing?.scriptURL || registration.waiting?.scriptURL || '';
+        // If it's a dev-mode service worker or has query params like ?dev-sw, unregister it
+        if (scriptUrl.includes('dev-sw.js') || scriptUrl.includes('?dev-sw') || import.meta.env.DEV) {
+          try {
+            await registration.unregister();
+          } catch {
+            // Ignore unregister errors
+          }
+        } else {
+          try {
+            await registration.update();
+          } catch {
+            // If update fails (e.g. 404 or unsupported MIME), unregister the stale worker
+            try {
+              await registration.unregister();
+            } catch {
+              // Ignore
+            }
+          }
+        }
       }
-    } catch (err) {
-      console.warn('[CacheService] Error updating service workers:', err);
+    } catch {
+      // Ignore background service worker update exceptions
     }
   }
 

@@ -35,6 +35,21 @@ service cloud.firestore {
       match /workers/{workerId} {
         allow read, write: if true;
       }
+
+      // Delivery Trips & Route Runs Subcollection
+      match /trips/{tripId} {
+        allow read, write: if true;
+      }
+
+      // Recurring Customer Schedules Subcollection
+      match /schedules/{scheduleId} {
+        allow read, write: if true;
+      }
+
+      // Field Expenses & Fuel Logs Subcollection
+      match /expenses/{expenseId} {
+        allow read, write: if true;
+      }
     }
 
     // --- Worker Assignments Collection (Top-Level Multi-Business Worker Index) ---

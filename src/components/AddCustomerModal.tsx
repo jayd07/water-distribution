@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Customer } from '../types';
 import { createCustomer, updateCustomer } from '../services/deliveryService';
 import { X, Check, AlertCircle, Edit2, UserPlus, MapPin } from 'lucide-react';
+import { Button } from './ui/Button';
+import { useLanguage } from '../context/LanguageContext';
 
 interface AddCustomerModalProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
   existingRoutes,
   customers = []
 }) => {
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -133,7 +136,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                {isEditing ? 'Edit Customer Profile' : 'Add New Customer'}
+                {isEditing ? t.customer.editCustomer : t.customer.newCustomer}
               </h3>
               <p className="text-xs text-slate-500">
                 {isEditing ? `Editing ${customerToEdit?.name}` : 'Create a route customer record'}
@@ -175,7 +178,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
 
           <div>
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-              Customer / Business Name *
+              {t.customer.customerBusinessName}
             </label>
             <input
               type="text"
@@ -190,7 +193,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                Account Type
+                {t.customer.customerType}
               </label>
               <select
                 value={customerType}
@@ -200,14 +203,14 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
                 }}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
               >
-                <option value="RESIDENTIAL">Residential (Home)</option>
-                <option value="COMMERCIAL">Commercial (Office / Gym)</option>
+                <option value="RESIDENTIAL">{t.customer.residential}</option>
+                <option value="COMMERCIAL">{t.customer.commercial}</option>
               </select>
             </div>
 
             <div>
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                Phone Number
+                {t.customer.mobileNumber}
               </label>
               <input
                 type="tel"
@@ -222,7 +225,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Delivery Route / Area (Optional)
+                {t.customer.routeArea}
               </label>
               {availableRoutes.length > 0 && (
                 <span className="text-[10px] text-slate-400">
@@ -272,7 +275,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
 
           <div>
             <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
-              Full Delivery Address / Flat No.
+              {t.customer.deliveryAddress}
             </label>
             <textarea
               rows={2}
@@ -286,7 +289,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
             <div>
               <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                {isEditing ? 'Jars Currently Held' : 'Initial Jars Issued'}
+                {isEditing ? t.customer.jarsCurrentlyHeld : t.customer.initialJarsIssued}
               </label>
               <input
                 type="number"
@@ -299,7 +302,7 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
 
             <div>
               <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                Security Deposit (₹)
+                {t.customer.securityDeposit}
               </label>
               <input
                 type="number"
@@ -312,34 +315,24 @@ export const AddCustomerModal: React.FC<AddCustomerModalProps> = ({
           </div>
 
           <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="md"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
             >
-              Cancel
-            </button>
-            <button
+              {t.common.cancel}
+            </Button>
+            <Button
               type="submit"
-              disabled={isSubmitting}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
-                isEditing
-                  ? 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800'
-                  : 'bg-sky-600 hover:bg-sky-700 active:bg-sky-800'
-              } disabled:opacity-50`}
+              variant={isEditing ? 'amber' : 'primary'}
+              size="md"
+              glow
+              isLoading={isSubmitting}
+              leftIcon={<Check className="w-4 h-4 stroke-[2.5]" />}
             >
-              {isSubmitting ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4 stroke-[2.5]" />
-                  {isEditing ? 'Save Changes' : 'Create Customer'}
-                </>
-              )}
-            </button>
+              {isEditing ? t.customer.saveChanges : t.customer.createCustomer}
+            </Button>
           </div>
         </form>
 

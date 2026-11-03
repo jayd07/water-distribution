@@ -12,8 +12,11 @@ import {
   setPersistence,
   browserLocalPersistence
 } from 'firebase/auth';
-import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, setLogLevel } from 'firebase/firestore';
 import firebaseAppletConfig from '../../firebase-applet-config.json';
+
+// Configure Firestore SDK log level to suppress routine connection polling notices
+setLogLevel('error');
 
 // Production Log Filter - Silences unnecessary console output in production
 if (typeof window !== 'undefined' && (import.meta.env.PROD || process.env.NODE_ENV === 'production')) {
@@ -44,16 +47,14 @@ const databaseId = (firebaseAppletConfig as { firestoreDatabaseId?: string }).fi
 
 let firestoreInstance;
 try {
+  const firestoreSettings = {
+    experimentalAutoDetectLongPolling: true,
+    ignoreUndefinedProperties: true
+  };
   if (databaseId && databaseId !== '(default)') {
-    firestoreInstance = initializeFirestore(app, {
-      experimentalForceLongPolling: true,
-      ignoreUndefinedProperties: true
-    }, databaseId);
+    firestoreInstance = initializeFirestore(app, firestoreSettings, databaseId);
   } else {
-    firestoreInstance = initializeFirestore(app, {
-      experimentalForceLongPolling: true,
-      ignoreUndefinedProperties: true
-    });
+    firestoreInstance = initializeFirestore(app, firestoreSettings);
   }
 } catch {
   firestoreInstance = databaseId && databaseId !== '(default)' 

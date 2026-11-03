@@ -98,8 +98,24 @@ export function getAllWorkers(): BusinessWorker[] {
       return DEFAULT_WORKERS;
     }
     const list: BusinessWorker[] = JSON.parse(raw);
-    // Filter dummy legacy worker ids
-    return list.filter(w => w.id !== 'worker_001' && w.id !== 'worker_002');
+    const seenIds = new Set<string>();
+    const seenPairs = new Set<string>();
+    const deduplicated: BusinessWorker[] = [];
+
+    for (const w of list) {
+      if (!w || !w.id || w.id === 'worker_001' || w.id === 'worker_002') continue;
+      const normP = normalizePhone(w.workerPhone);
+      const pairKey = `${w.businessId}_${normP}`;
+      if (!seenIds.has(w.id) && !seenPairs.has(pairKey)) {
+        seenIds.add(w.id);
+        seenPairs.add(pairKey);
+        deduplicated.push({
+          ...w,
+          workerPhone: normP
+        });
+      }
+    }
+    return deduplicated;
   } catch {
     return DEFAULT_WORKERS;
   }
@@ -108,7 +124,24 @@ export function getAllWorkers(): BusinessWorker[] {
 // Save workers to local store
 export function saveWorkers(workers: BusinessWorker[]): void {
   try {
-    localStorage.setItem(WORKERS_STORAGE_KEY, JSON.stringify(workers));
+    const seenIds = new Set<string>();
+    const seenPairs = new Set<string>();
+    const deduplicated: BusinessWorker[] = [];
+
+    for (const w of workers) {
+      if (!w || !w.id) continue;
+      const normP = normalizePhone(w.workerPhone);
+      const pairKey = `${w.businessId}_${normP}`;
+      if (!seenIds.has(w.id) && !seenPairs.has(pairKey)) {
+        seenIds.add(w.id);
+        seenPairs.add(pairKey);
+        deduplicated.push({
+          ...w,
+          workerPhone: normP
+        });
+      }
+    }
+    localStorage.setItem(WORKERS_STORAGE_KEY, JSON.stringify(deduplicated));
   } catch (err) {
     console.warn('Failed to persist workers to localStorage', err);
   }
@@ -159,42 +192,20 @@ export async function syncBusinessesFromCloud(): Promise<BusinessAccount[]> {
   try {
     const colRef = collection(db, 'businesses');
     const snapshot = await getDocs(colRef);
-    if (!snapshot.empty) {
-      const cloudBusinesses: BusinessAccount[] = [];
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data && docSnap.id) {
-          cloudBusinesses.push(mapDocToBusinessAccount(docSnap.id, data));
-        }
-      });
-
-      // Merge with existing local businesses
-      const localBusinesses = getAllBusinesses();
-      const mergedMap = new Map<string, BusinessAccount>();
-
-      // Keep default business
-      mergedMap.set(DEFAULT_BUSINESS.id, DEFAULT_BUSINESS);
-
-      // Local entries first
-      for (const lb of localBusinesses) {
-        if (lb.id) mergedMap.set(lb.id, lb);
-      }
-
-      // Cloud entries take precedence
-      for (const cb of cloudBusinesses) {
-        if (cb.id) {
-          const existing = mergedMap.get(cb.id);
-          mergedMap.set(cb.id, {
-            ...existing,
-            ...cb
-          });
+    const cloudBusinesses: BusinessAccount[] = [];
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data && docSnap.id) {
+        const mapped = mapDocToBusinessAccount(docSnap.id, data);
+        if (isRegisteredBusiness(mapped)) {
+          cloudBusinesses.push(mapped);
         }
       }
+    });
 
-      const mergedList = Array.from(mergedMap.values());
-      saveBusinesses(mergedList);
-      return mergedList;
-    }
+    // Cloud is the single source of truth - replace stale local storage records
+    saveBusinesses(cloudBusinesses);
+    return cloudBusinesses;
   } catch (err) {
     console.warn('[Cloud Sync] Failed to fetch businesses from Firestore:', err);
   }
@@ -368,19 +379,12 @@ export async function syncWorkerAssignmentsFromCloud(): Promise<BusinessWorker[]
       } catch {}
     }
 
-    if (cloudWorkers.length > 0) {
-      const localWorkers = getAllWorkers();
-      const map = new Map<string, BusinessWorker>();
-      for (const lw of localWorkers) {
-        map.set(`${lw.businessId}_${normalizePhone(lw.workerPhone)}`, lw);
-      }
-      for (const cw of cloudWorkers) {
-        map.set(`${cw.businessId}_${normalizePhone(cw.workerPhone)}`, cw);
-      }
-      const merged = Array.from(map.values());
-      saveWorkers(merged);
-      return merged;
-    }
+    const currentBusinesses = getAllBusinesses();
+    const validWorkers = cloudWorkers.filter(w => {
+      return Boolean(w.businessId && currentBusinesses.some(b => b.id === w.businessId));
+    });
+    saveWorkers(validWorkers);
+    return validWorkers;
   } catch (err) {
     console.warn('[Cloud Sync] Failed to sync worker assignments:', err);
   }
@@ -793,27 +797,7 @@ export function getBusinessesForPhoneNumber(rawPhone: string): {
   const workerEntries = allWorkers.filter(w => normalizePhone(w.workerPhone) === norm);
 
   for (const entry of workerEntries) {
-    let foundBiz = allBusinesses.find(b => b.id === entry.businessId);
-    if (!foundBiz && entry.businessId) {
-      // Build robust fallback business account from worker entry if not locally synced yet
-      foundBiz = {
-        id: entry.businessId,
-        name: entry.businessName || 'Water Business',
-        ownerName: entry.ownerName || 'Business Owner',
-        ownerPhone: entry.addedByPhone || '',
-        ownerEmail: '',
-        ownerUid: '',
-        category: 'Packaged Water & Dispenser Supply',
-        address: '',
-        city: '',
-        gstin: '',
-        defaultJarRate: 35,
-        createdAt: entry.addedAt || Date.now(),
-        updatedAt: Date.now(),
-        workerPhones: [norm],
-        workers: [entry]
-      };
-    }
+    const foundBiz = allBusinesses.find(b => b.id === entry.businessId && isRegisteredBusiness(b));
     if (foundBiz) {
       if (!assignedAsWorker.some(a => a.business.id === foundBiz.id)) {
         assignedAsWorker.push({
@@ -826,7 +810,7 @@ export function getBusinessesForPhoneNumber(rawPhone: string): {
 
   // Also check businesses array directly for embedded workers or workerPhones
   for (const b of allBusinesses) {
-    if (b.id === DEFAULT_BUSINESS.id) continue;
+    if (!isRegisteredBusiness(b)) continue;
     if (Array.isArray(b.workers)) {
       for (const w of b.workers) {
         if (normalizePhone(w.workerPhone) === norm) {
@@ -967,6 +951,9 @@ export async function getBusinessesForPhoneNumberAsync(rawPhone: string): Promis
       getDocs(collectionGroup(db, 'worker_assignments'))
     ]);
 
+    const seenDocIds = new Set<string>();
+    const seenBizPhone = new Set<string>();
+
     const processAssignDoc = (docSnap: any) => {
       const data = docSnap.data();
       if (data) {
@@ -977,19 +964,25 @@ export async function getBusinessesForPhoneNumberAsync(rawPhone: string): Promis
 
         if (phoneMatches || docIdMatches) {
           const targetBizId = data.businessId || docSnap.ref.parent.parent?.id || docSnap.id.split('_').pop() || '';
-          discoveredWorkerRecords.push({
-            id: data.id || docSnap.id,
-            businessId: targetBizId,
-            businessName: data.businessName || 'Water Business',
-            workerName: data.workerName || 'Worker',
-            workerPhone: norm,
-            role: data.role || 'DRIVER',
-            assignedRoute: data.assignedRoute || 'General Delivery Route',
-            status: data.status || 'ACTIVE',
-            addedAt: Number(data.addedAt) || Date.now(),
-            addedByPhone: normalizePhone(data.addedByPhone || ''),
-            ownerName: data.ownerName || 'Admin'
-          });
+          const recId = data.id || docSnap.id;
+          const comboKey = `${targetBizId}_${norm}`;
+          if (!seenDocIds.has(recId) && !seenBizPhone.has(comboKey)) {
+            seenDocIds.add(recId);
+            seenBizPhone.add(comboKey);
+            discoveredWorkerRecords.push({
+              id: recId,
+              businessId: targetBizId,
+              businessName: data.businessName || 'Water Business',
+              workerName: data.workerName || 'Worker',
+              workerPhone: norm,
+              role: data.role || 'DRIVER',
+              assignedRoute: data.assignedRoute || 'General Delivery Route',
+              status: data.status || 'ACTIVE',
+              addedAt: Number(data.addedAt) || Date.now(),
+              addedByPhone: normalizePhone(data.addedByPhone || ''),
+              ownerName: data.ownerName || 'Admin'
+            });
+          }
         }
       }
     };
@@ -1014,19 +1007,23 @@ export async function getBusinessesForPhoneNumberAsync(rawPhone: string): Promis
         const phoneMatches = normWPhone === norm || phoneRegex.test(data.workerPhone);
         if (phoneMatches) {
           const parentBizId = data.businessId || docSnap.ref.parent.parent?.id || '';
-          discoveredWorkerRecords.push({
-            id: docSnap.id,
-            businessId: parentBizId,
-            businessName: data.businessName || 'Water Business',
-            workerName: data.workerName || 'Worker',
-            workerPhone: norm,
-            role: data.role || 'DRIVER',
-            assignedRoute: data.assignedRoute || 'General Delivery Route',
-            status: data.status || 'ACTIVE',
-            addedAt: Number(data.addedAt) || Date.now(),
-            addedByPhone: normalizePhone(data.addedByPhone || ''),
-            ownerName: data.ownerName || 'Admin'
-          });
+          const recId = docSnap.id;
+          const comboKey = `${parentBizId}_${norm}`;
+          if (!discoveredWorkerRecords.some(dw => dw.id === recId || (dw.businessId === parentBizId && dw.workerPhone === norm))) {
+            discoveredWorkerRecords.push({
+              id: recId,
+              businessId: parentBizId,
+              businessName: data.businessName || 'Water Business',
+              workerName: data.workerName || 'Worker',
+              workerPhone: norm,
+              role: data.role || 'DRIVER',
+              assignedRoute: data.assignedRoute || 'General Delivery Route',
+              status: data.status || 'ACTIVE',
+              addedAt: Number(data.addedAt) || Date.now(),
+              addedByPhone: normalizePhone(data.addedByPhone || ''),
+              ownerName: data.ownerName || 'Admin'
+            });
+          }
         }
       }
     });
@@ -1044,33 +1041,25 @@ export async function getBusinessesForPhoneNumberAsync(rawPhone: string): Promis
       try {
         const bDoc = await getDoc(doc(db, 'businesses', wRecord.businessId));
         if (bDoc.exists()) {
-          targetBiz = mapDocToBusinessAccount(bDoc.id, bDoc.data());
-          businessMap.set(wRecord.businessId, targetBiz);
+          const mapped = mapDocToBusinessAccount(bDoc.id, bDoc.data());
+          if (isRegisteredBusiness(mapped)) {
+            targetBiz = mapped;
+            businessMap.set(wRecord.businessId, targetBiz);
+          }
         }
       } catch {}
     }
 
-    if (!targetBiz) {
-      const fallbackPhone = normalizePhone(wRecord.addedByPhone || '');
-      targetBiz = {
-        id: wRecord.businessId,
-        name: wRecord.businessName || 'Water Business',
-        ownerName: wRecord.ownerName || 'Business Owner',
-        ownerPhone: fallbackPhone,
-        ownerEmail: '',
-        ownerUid: '',
-        category: 'Packaged Water & Dispenser Supply',
-        address: '',
-        city: '',
-        gstin: '',
-        upiId: fallbackPhone.length >= 10 ? `${fallbackPhone.slice(-10)}@upi` : '',
-        defaultJarRate: 35,
-        createdAt: Number(wRecord.addedAt) || Date.now(),
-        updatedAt: Date.now(),
-        workerPhones: [norm],
-        workers: [wRecord]
-      };
-      businessMap.set(wRecord.businessId, targetBiz);
+    // If targetBiz doesn't exist in Firestore, this business/worker was deleted
+    if (!targetBiz || !isRegisteredBusiness(targetBiz)) {
+      // Clean up orphaned assignment record from Firestore if it exists
+      try {
+        deleteDoc(doc(db, 'worker_assignments', `${norm}_${wRecord.businessId}`)).catch(() => {});
+        if (wRecord.id) {
+          deleteDoc(doc(db, 'worker_assignments', wRecord.id)).catch(() => {});
+        }
+      } catch {}
+      continue;
     }
 
     if (!assignedAsWorker.some(a => a.business.id === targetBiz!.id)) {
@@ -1082,20 +1071,14 @@ export async function getBusinessesForPhoneNumberAsync(rawPhone: string): Promis
   }
 
   // Save discovered businesses & workers to memory and local storage
-  if (businessMap.size > 0) {
-    saveBusinesses(Array.from(businessMap.values()));
+  const validBusinesses = Array.from(businessMap.values()).filter(b => isRegisteredBusiness(b));
+  if (validBusinesses.length > 0) {
+    saveBusinesses(validBusinesses);
   }
-  if (discoveredWorkerRecords.length > 0) {
-    const existingWorkers = getAllWorkers();
-    const map = new Map<string, BusinessWorker>();
-    for (const ew of existingWorkers) {
-      map.set(`${ew.businessId}_${normalizePhone(ew.workerPhone)}`, ew);
-    }
-    for (const dw of discoveredWorkerRecords) {
-      map.set(`${dw.businessId}_${normalizePhone(dw.workerPhone)}`, dw);
-    }
-    saveWorkers(Array.from(map.values()));
-  }
+  const validDiscoveredWorkers = discoveredWorkerRecords.filter(dw => 
+    Boolean(dw.businessId && validBusinesses.some(b => b.id === dw.businessId))
+  );
+  saveWorkers(validDiscoveredWorkers);
 
   // 5. Strict filtering: A business cannot be in 'owned' if the user is assigned as a worker,
   // unless the user's phone strictly matches the registered owner phone.
