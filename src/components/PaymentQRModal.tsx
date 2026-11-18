@@ -89,7 +89,7 @@ export const PaymentQRModal: React.FC<PaymentQRModalProps> = ({
   }, [vpa, defaultVpa, payeeName, business?.name, note, numAmount]);
 
   const qrImageUrl = useMemo(() => {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=${encodeURIComponent(upiUrl)}`;
+    return `https://quickchart.io/qr?size=280&margin=2&ecLevel=M&text=${encodeURIComponent(upiUrl)}`;
   }, [upiUrl]);
 
   if (!isOpen) return null;
@@ -101,16 +101,17 @@ export const PaymentQRModal: React.FC<PaymentQRModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleShareWhatsApp = () => {
-    const shareText = `*Payment Request from ${payeeName}*
+  const handleShareWhatsApp = async () => {
+    const shareText = `*${payeeName.toUpperCase()} - UPI PAYMENT REQUEST*
 ----------------------------------------
-*Amount:* ${numAmount > 0 ? `₹${numAmount}` : 'Any amount'}
+*Amount:* ${numAmount > 0 ? `₹${numAmount.toLocaleString('en-IN')}` : 'Open Amount'}
 *UPI ID (VPA):* ${vpa}
-*Note:* ${note}
+*Reference:* ${note}
 ----------------------------------------
-👉 *Tap to pay directly via any UPI App:*
-${upiUrl}`;
-    
+*PAYMENT INFORMATION & QR*
+• Pay via UPI App: ${upiUrl}
+• Scan QR Code: ${qrImageUrl}`;
+
     const link = document.createElement('a');
     link.href = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
     link.target = '_blank';

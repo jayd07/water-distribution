@@ -151,14 +151,14 @@
   }
 
   table.invoice-table thead tr {
-    background-color: #f1f5f9 !important;
-    border-bottom: 1.5px solid #0f172a !important;
+    background-color: #0369a1 !important;
+    border-bottom: 1.5px solid #0284c7 !important;
   }
 
   table.invoice-table th {
-    color: #0f172a !important;
+    color: #ffffff !important;
     font-weight: 700 !important;
-    padding: 6px 8px !important;
+    padding: 7px 10px !important;
   }
 
   table.invoice-table tbody tr {
@@ -168,7 +168,7 @@
   }
 
   table.invoice-table td {
-    padding: 6px 8px !important;
+    padding: 7px 10px !important;
     vertical-align: top !important;
   }
 
@@ -185,7 +185,7 @@
   }
 
   table.invoice-table tfoot td {
-    padding: 7px 8px !important;
+    padding: 7px 10px !important;
     font-weight: 800 !important;
     color: #000000 !important;
     border-top: 2px solid #0f172a !important;
@@ -214,12 +214,11 @@
     align-items: center !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    border-top: 2px solid #0f172a !important;
-    border-bottom: 2px solid #0f172a !important;
-    background-color: #f8fafc !important;
-    padding: 6px 8px !important;
+    border: 1.5px solid #0284c7 !important;
+    background-color: #f0f9ff !important;
+    padding: 8px 12px !important;
     font-weight: 800 !important;
-    color: #000000 !important;
+    color: #0f172a !important;
   }
 
   /* Thermal POS Printer Mode (58mm / 80mm receipt rolls or explicit POS toggle) */
@@ -271,6 +270,7 @@
   .print-only-container.print-pos-thermal table.invoice-table td {
     padding: 3px 2px !important;
     font-size: 9.5px !important;
+    color: #000000 !important;
   }
 
   .print-only-container.print-pos-thermal table.invoice-table thead tr {
@@ -290,11 +290,13 @@
 
   .print-only-container.print-pos-thermal .invoice-total-row {
     padding: 4px 0 !important;
+    border: none !important;
     border-top: 1.5px dashed #000000 !important;
     border-bottom: 1.5px solid #000000 !important;
     background: transparent !important;
     font-size: 10.5px !important;
     font-weight: 800 !important;
+    color: #000000 !important;
   }
 
   .page-break {

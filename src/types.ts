@@ -93,6 +93,7 @@ export interface BusinessAccount {
   city?: string;
   gstin?: string;
   upiId?: string;
+  logoUrl?: string;
   googleSheetsWebhookUrl?: string;
   googleSheetsUrl?: string;
   googleSheetId?: string;

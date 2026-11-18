@@ -173,6 +173,7 @@ export function mapDocToBusinessAccount(id: string, data: any): BusinessAccount 
     city: data.city || '',
     gstin: data.gstin || '',
     upiId: upi,
+    logoUrl: data.logoUrl || '',
     googleSheetsWebhookUrl: data.googleSheetsWebhookUrl || '',
     googleSheetsUrl: data.googleSheetsUrl || '',
     googleSheetId: data.googleSheetId || '',

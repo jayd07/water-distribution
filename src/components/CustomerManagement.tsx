@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import { Customer, DeliveryLog, BusinessAccount } from '../types';
 import { getActiveBusiness } from '../services/businessService';
-import { generateWhatsAppReminderText, openWhatsAppChat } from '../utils/upiUtils';
+import {
+  generateWhatsAppReminderText,
+  openWhatsAppChat,
+  resolveBusinessUpiId,
+  generateUpiUri,
+  getPublicQrImageUrl,
+  generateUpiQrCardBlob
+} from '../utils/upiUtils';
 import { 
   Users, 
   Search, 
@@ -93,8 +100,10 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
   const activeBiz = business || getActiveBusiness();
   const effectiveBizName = businessName || activeBiz?.name || 'Water Supply Management';
   const effectiveBizPhone = businessPhone || activeBiz?.ownerPhone || '';
-  // Strictly genuine configured UPI ID only. No default fallback.
-  const effectiveUpiId = (activeBiz?.upiId || '').trim();
+  const effectiveUpiId = resolveBusinessUpiId({
+    upiId: activeBiz?.upiId,
+    ownerPhone: effectiveBizPhone
+  });
 
   // Use searchQuery if provided, else localSearch
   const effectiveSearch = searchQuery !== undefined && searchQuery !== '' ? searchQuery : localSearch;
@@ -133,17 +142,40 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
   const totalCirculation = customers.reduce((sum, c) => sum + (Number(c.jarsHolding) || 0), 0);
 
   // Send WhatsApp reminder for overdue balance with dynamic transactional QR option
-  const handleSendPaymentReminder = (cust: Customer) => {
+  const handleSendPaymentReminder = async (cust: Customer) => {
+    const dueAmt = Number(cust.dueAmount) || 0;
+    if (effectiveUpiId && includeDueQrInReminders) {
+      const upiUri = generateUpiUri({
+        upiId: effectiveUpiId,
+        merchantName: effectiveBizName,
+        amount: dueAmt > 0 ? dueAmt : undefined,
+        note: `Water Supply Payment - ${cust.name}`
+      });
+      const blob = await generateUpiQrCardBlob({
+        upiUri,
+        upiId: effectiveUpiId,
+        merchantName: effectiveBizName,
+        customerName: cust.name,
+        amount: dueAmt > 0 ? dueAmt : undefined
+      });
+      if (blob && typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        } catch {
+          // Ignore clipboard write rejection
+        }
+      }
+    }
+
     const text = generateWhatsAppReminderText({
       customerName: cust.name,
       customerPhone: cust.phone || '',
-      dueAmount: Number(cust.dueAmount) || 0,
+      dueAmount: dueAmt,
       jarsHolding: Number(cust.jarsHolding) || 0,
       businessName: effectiveBizName,
       businessPhone: effectiveBizPhone,
       upiId: effectiveUpiId,
-      includeQr: includeDueQrInReminders,
-      transactionRef: `DUE-${cust.id.replace('cust_', '').toUpperCase()}`
+      includeQr: includeDueQrInReminders
     });
 
     openWhatsAppChat(cust.phone || '', text);
@@ -151,15 +183,10 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
   };
 
   // Send WhatsApp bill / balance statement directly to the customer
-  const handleSendCustomerBill = (cust: Customer) => {
+  const handleSendCustomerBill = async (cust: Customer) => {
     if ((Number(cust.dueAmount) || 0) > 0) {
-      handleSendPaymentReminder(cust);
+      await handleSendPaymentReminder(cust);
       return;
-    }
-
-    let cleanPhone = (cust.phone || '').replace(/\D/g, '');
-    if (cleanPhone.length === 10) {
-      cleanPhone = '91' + cleanPhone;
     }
 
     const todayStr = new Date().toLocaleDateString('en-IN', {
@@ -172,28 +199,56 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
     const dueAmt = cust.dueAmount || 0;
     const deposit = cust.depositPaid || 0;
 
-    const billMessage = `*💧 ${effectiveBizName.toUpperCase()}*
-*CUSTOMER ACCOUNT BILL & LEDGER STATEMENT*
-----------------------------------------
+    let upiSection = '';
+    if (effectiveUpiId) {
+      const upiUri = generateUpiUri({
+        upiId: effectiveUpiId,
+        merchantName: effectiveBizName,
+        amount: dueAmt > 0 ? dueAmt : undefined,
+        note: `Water Supply - ${cust.name}`
+      });
+      const qrImg = getPublicQrImageUrl(upiUri, 320);
+      upiSection = `\n----------------------------------------
+*PAYMENT INFORMATION & QR*
+• UPI ID: ${effectiveUpiId}
+• Pay via UPI App: ${upiUri}
+• Scan QR Code: ${qrImg}
+----------------------------------------`;
+
+      const blob = await generateUpiQrCardBlob({
+        upiUri,
+        upiId: effectiveUpiId,
+        merchantName: effectiveBizName,
+        customerName: cust.name,
+        amount: dueAmt > 0 ? dueAmt : undefined,
+        dateStr: todayStr
+      });
+      if (blob && typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        } catch {
+          // Ignore clipboard rejection
+        }
+      }
+    }
+
+    const cleanAddr = (cust.address || '').trim();
+    const cleanPhone = (cust.phone || '').trim();
+
+    const billMessage = `*${effectiveBizName.toUpperCase()}*
+*STATEMENT OF ACCOUNT*
+========================================
 *Date:* ${todayStr}
 *Customer:* ${cust.name}
-*Phone:* ${cust.phone || 'N/A'}
-*Address:* ${cust.address || 'Delivery Location'}
-----------------------------------------
-*20L Water Jars with You:* ${jarsCount} jar(s)
-*Pending Due Balance:* ₹${dueAmt.toLocaleString('en-IN')}
-*Security Deposit Paid:* ₹${deposit.toLocaleString('en-IN')}
-*Payment Status:* ${dueAmt > 0 ? '⚠️ PAYMENT PENDING' : '✅ ALL DUES SETTLED'}
-${effectiveUpiId ? `*UPI ID for Payment:* ${effectiveUpiId}\n` : ''}----------------------------------------
-${dueAmt > 0 ? `Please clear the pending balance of *₹${dueAmt.toLocaleString('en-IN')}* via UPI or Cash.\n\n` : ''}Thank you for your business!
-${effectiveBizPhone ? `For assistance, contact: ${effectiveBizPhone}` : ''}`;
+${cleanPhone ? `*Phone:* ${cleanPhone}\n` : ''}${cleanAddr ? `*Address:* ${cleanAddr}\n` : ''}----------------------------------------
+*Containers Held:* ${jarsCount} Jar(s)
+*Pending Balance:* ₹${dueAmt.toLocaleString('en-IN')}
+*Security Deposit:* ₹${deposit.toLocaleString('en-IN')}${upiSection}
 
-    const encoded = encodeURIComponent(billMessage);
-    const whatsappUrl = cleanPhone.length >= 10
-      ? `https://wa.me/${cleanPhone}?text=${encoded}`
-      : `https://wa.me/?text=${encoded}`;
+Thank you,
+*${effectiveBizName}*${effectiveBizPhone ? `\nTel: ${effectiveBizPhone}` : ''}`;
 
-    window.open(whatsappUrl, '_blank');
+    openWhatsAppChat(cust.phone || '', billMessage);
   };
 
   // Handle customer deletion
