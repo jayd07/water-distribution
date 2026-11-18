@@ -71,42 +71,82 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
     }
   }, [onRefresh]);
 
+  // Helper to check if touch started inside a modal or nested scrollable element
+  const isInsideScrollableOrModal = (target: EventTarget | null): boolean => {
+    let el = target as HTMLElement | null;
+    while (el && el !== containerRef.current && el !== document.body) {
+      if (
+        el.tagName === 'INPUT' ||
+        el.tagName === 'SELECT' ||
+        el.tagName === 'TEXTAREA' ||
+        el.getAttribute('role') === 'dialog'
+      ) {
+        return true;
+      }
+      const style = window.getComputedStyle(el);
+      if (style.position === 'fixed') {
+        return true;
+      }
+      const overflowY = style.overflowY;
+      if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight) {
+        return true;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  };
+
   // Touch event handlers
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (disabled || isRefreshingRef.current) return;
+    if (isInsideScrollableOrModal(e.target)) {
+      isTrackingRef.current = false;
+      return;
+    }
 
     // Check if the scroll position is at the very top
     const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
     const containerScrollTop = containerRef.current ? containerRef.current.scrollTop : 0;
 
-    if (scrollTop <= 2 && containerScrollTop <= 2) {
+    if (scrollTop <= 1 && containerScrollTop <= 1) {
       startYRef.current = e.touches[0].clientY;
       startXRef.current = e.touches[0].clientX;
       isTrackingRef.current = true;
+    } else {
+      isTrackingRef.current = false;
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (!isTrackingRef.current || disabled || isRefreshingRef.current) return;
 
+    const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    if (scrollTop > 2) {
+      isTrackingRef.current = false;
+      if (pullDistance !== 0) setPullDistance(0);
+      if (refreshState !== 'idle') setRefreshState('idle');
+      return;
+    }
+
     const currentY = e.touches[0].clientY;
     const currentX = e.touches[0].clientX;
     const deltaY = currentY - startYRef.current;
     const deltaX = currentX - startXRef.current;
 
-    // Disregard horizontal gestures
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+    // Immediately release tracking if user scrolls downward (deltaY <= 0) or swipes horizontally
+    if (deltaY <= 0 || (Math.abs(deltaX) > Math.abs(deltaY) * 0.8 && Math.abs(deltaX) > 8)) {
       isTrackingRef.current = false;
-      setPullDistance(0);
-      setRefreshState('idle');
+      if (pullDistance !== 0) setPullDistance(0);
+      if (refreshState !== 'idle') setRefreshState('idle');
       return;
     }
 
-    if (deltaY > 0) {
-      // Elastic rubber band formula
+    // Require a deliberate 16px downward pull deadzone before activating rubber-band offset
+    if (deltaY > 16) {
+      const effectiveDelta = deltaY - 16;
       const dampedDistance = Math.min(
         maxPull,
-        Math.pow(deltaY, 0.82) * 1.55
+        Math.pow(effectiveDelta, 0.82) * 1.45
       );
       setPullDistance(dampedDistance);
 
@@ -119,9 +159,6 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
           setRefreshState('pulling');
         }
       }
-    } else {
-      setPullDistance(0);
-      setRefreshState('idle');
     }
   };
 
@@ -138,11 +175,12 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
     }
   };
 
-  // Pointer event support for desktop preview dragging
+  // Pointer event support strictly for desktop mouse dragging (ignore touch pointers to prevent double-firing)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled || isRefreshingRef.current || e.button !== 0) return;
+    if (e.pointerType !== 'mouse' || disabled || isRefreshingRef.current || e.button !== 0) return;
+    if (isInsideScrollableOrModal(e.target)) return;
     const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
-    if (scrollTop <= 2) {
+    if (scrollTop <= 1) {
       startYRef.current = e.clientY;
       startXRef.current = e.clientX;
       isTrackingRef.current = true;
@@ -150,17 +188,23 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isTrackingRef.current || disabled || isRefreshingRef.current) return;
+    if (e.pointerType !== 'mouse' || !isTrackingRef.current || disabled || isRefreshingRef.current) return;
     const deltaY = e.clientY - startYRef.current;
-    if (deltaY > 12) {
-      const dampedDistance = Math.min(maxPull, Math.pow(deltaY, 0.82) * 1.55);
+    if (deltaY <= 0) {
+      isTrackingRef.current = false;
+      setPullDistance(0);
+      setRefreshState('idle');
+      return;
+    }
+    if (deltaY > 16) {
+      const dampedDistance = Math.min(maxPull, Math.pow(deltaY - 16, 0.82) * 1.45);
       setPullDistance(dampedDistance);
       setRefreshState(dampedDistance >= pullThreshold ? 'ready' : 'pulling');
     }
   };
 
-  const handlePointerUp = () => {
-    if (!isTrackingRef.current || disabled || isRefreshingRef.current) return;
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse' || !isTrackingRef.current || disabled || isRefreshingRef.current) return;
     isTrackingRef.current = false;
     if (pullDistance >= pullThreshold) {
       performRefresh();

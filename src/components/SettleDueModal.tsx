@@ -45,7 +45,7 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
     return getActiveBusiness();
   }, [business, businessId]);
 
-  const effectiveBizName = activeBiz?.name?.trim() || 'AquaPure Springs Water Distribution';
+  const effectiveBizName = activeBiz?.name?.trim() || 'Water Supply Management';
   
   // Strictly derive business UPI handle
   const effectiveUpiId = useMemo(() => {
@@ -134,26 +134,28 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-sm w-full shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[95vh] flex flex-col">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-2.5 sm:p-4">
+      <div className="bg-white rounded-2xl max-w-sm w-full shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[85dvh] sm:max-h-[90vh] flex flex-col">
+        <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-slate-900 truncate">
               {currentDue > 0 ? (isGujarati ? 'ગ્રાહકની બાકી રકમ જમા' : 'Settle Customer Due') : (isGujarati ? 'ચુકવણી નોંધણી' : 'Record Transaction / Payment')}
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-[11px] sm:text-xs text-slate-500 truncate">
               {isGujarati ? 'રોકડ, યુપીઆઈ અથવા બેંક દ્વારા રકમ સ્વીકારો' : 'Record cash, UPI or bank collection'}
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="p-3.5 sm:p-5 space-y-3 sm:space-y-3.5 overflow-y-auto overscroll-contain modal-scroll-body flex-1 min-h-0">
           {error && (
             <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-1.5">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -226,20 +228,20 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
                 </span>
               </div>
 
-              <div className="flex items-center gap-3.5">
-                <div className="bg-white p-2 rounded-xl border border-slate-200/90 shadow-2xs shrink-0 text-center">
+              <div className="flex items-center gap-3">
+                <div className="bg-white p-1.5 sm:p-2 rounded-xl border border-slate-200/90 shadow-2xs shrink-0 text-center">
                   {qrDataUrl ? (
                     <img
                       src={qrDataUrl}
                       alt="UPI QR Code"
-                      className="w-24 h-24 object-contain rounded-lg"
+                      className="w-20 h-20 sm:w-24 sm:h-24 object-contain rounded-lg"
                     />
                   ) : (
-                    <div className="w-24 h-24 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400">
-                      <QrCode className="w-10 h-10" />
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400">
+                      <QrCode className="w-8 h-8 sm:w-10 sm:h-10" />
                     </div>
                   )}
-                  <span className="text-[9px] font-bold text-slate-500 block mt-1">
+                  <span className="text-[9px] font-bold text-slate-500 block mt-0.5">
                     {isGujarati ? 'સ્કેન કરી ચૂકવો' : 'Scan to Pay'}
                   </span>
                 </div>
@@ -280,7 +282,7 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
                   </div>
 
                   <p className="text-[10px] text-slate-500">
-                    GPay • PhonePe • Paytm • BHIM
+                    All UPI Apps Supported
                   </p>
                 </div>
               </div>
@@ -301,7 +303,9 @@ export const SettleDueModal: React.FC<SettleDueModalProps> = ({
             </div>
           )}
 
-          <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+          </div>
+
+          <div className="px-4 py-3 sm:px-5 sm:py-3.5 bg-white border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
             <Button
               type="button"
               variant="secondary"

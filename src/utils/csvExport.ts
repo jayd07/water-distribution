@@ -41,13 +41,21 @@ export interface DayAccountingSummary {
   totalBankTransferCollected: number;
   totalCreditPending: number;
   totalDueClearances: number;
+  deliveryCashCollected: number;
+  deliveryUpiCollected: number;
+  dueClearanceCash: number;
+  dueClearanceUpi: number;
+  dueClearanceBank: number;
+  dueClearanceCount: number;
 }
 
 /**
  * Checks if a timestamp matches a target date string (YYYY-MM-DD in local time)
  */
 export function isTimestampOnDate(timestamp: number, targetDateStr: string): boolean {
-  const d = new Date(timestamp);
+  if (!timestamp || !targetDateStr) return false;
+  const d = new Date(Number(timestamp));
+  if (isNaN(d.getTime())) return false;
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -56,7 +64,7 @@ export function isTimestampOnDate(timestamp: number, targetDateStr: string): boo
 }
 
 /**
- * Formats a Date object to YYYY-MM-DD
+ * Formats a Date object to YYYY-MM-DD in local time
  */
 export function formatDateToYYYYMMDD(d: Date = new Date()): string {
   const year = d.getFullYear();
@@ -66,7 +74,29 @@ export function formatDateToYYYYMMDD(d: Date = new Date()): string {
 }
 
 /**
- * Computes accounting summary statistics for a given calendar day
+ * Returns Yesterday's date formatted as YYYY-MM-DD in local time
+ */
+export function getYesterdayYYYYMMDD(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return formatDateToYYYYMMDD(d);
+}
+
+/**
+ * Formats a YYYY-MM-DD string into a human-readable date label (e.g., "17 Nov 2026")
+ */
+export function formatReadableDate(dateStr: string, locale: string = 'en-IN'): string {
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return dateStr;
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/**
+ * Computes accounting summary statistics for a given calendar day.
+ * Combines money collected during deliveries (CASH / UPI) with standalone
+ * customer due settlements (DUE_CLEARANCE / SECURITY_DEPOSIT) recorded on the same day,
+ * without double-counting REFILL_PAYMENT transactions that mirror delivery logs.
  */
 export function computeDayAccountingSummary(
   targetDateStr: string,
@@ -79,8 +109,8 @@ export function computeDayAccountingSummary(
   let totalJarsDelivered = 0;
   let totalEmptiesCollected = 0;
   let totalGrossBilled = 0;
-  let totalCashFromDeliveries = 0;
-  let totalUpiFromDeliveries = 0;
+  let deliveryCashCollected = 0;
+  let deliveryUpiCollected = 0;
   let totalCreditPending = 0;
 
   dayDeliveries.forEach(d => {
@@ -95,36 +125,47 @@ export function computeDayAccountingSummary(
     totalGrossBilled += gross;
 
     if (d.paymentMode === 'CASH') {
-      totalCashFromDeliveries += collected;
+      deliveryCashCollected += collected;
     } else if (d.paymentMode === 'UPI') {
-      totalUpiFromDeliveries += collected;
+      deliveryUpiCollected += collected;
     } else if (d.paymentMode === 'CREDIT') {
       totalCreditPending += (gross - collected > 0 ? gross - collected : gross);
     }
   });
 
-  let totalCashFromTx = 0;
-  let totalUpiFromTx = 0;
-  let totalBankTx = 0;
+  let totalCashFromAllTx = 0;
+  let totalUpiFromAllTx = 0;
+  let dueClearanceCash = 0;
+  let dueClearanceUpi = 0;
+  let dueClearanceBank = 0;
   let totalDueClearances = 0;
+  let dueClearanceCount = 0;
 
   dayTransactions.forEach(t => {
     const amt = Number(t.amount) || 0;
-    if (t.paymentMode === 'CASH') totalCashFromTx += amt;
-    else if (t.paymentMode === 'UPI') totalUpiFromTx += amt;
-    else if (t.paymentMode === 'BANK_TRANSFER') totalBankTx += amt;
+    if (t.paymentMode === 'CASH') totalCashFromAllTx += amt;
+    else if (t.paymentMode === 'UPI') totalUpiFromAllTx += amt;
+
+    // Standalone non-delivery settlements (DUE_CLEARANCE and SECURITY_DEPOSIT)
+    if (t.type !== 'REFILL_PAYMENT') {
+      if (t.paymentMode === 'CASH') dueClearanceCash += amt;
+      else if (t.paymentMode === 'UPI') dueClearanceUpi += amt;
+      else if (t.paymentMode === 'BANK_TRANSFER') dueClearanceBank += amt;
+    } else if (t.paymentMode === 'BANK_TRANSFER') {
+      dueClearanceBank += amt;
+    }
 
     if (t.type === 'DUE_CLEARANCE') {
       totalDueClearances += amt;
+      dueClearanceCount += 1;
     }
   });
 
-  // Calculate distinct settled funds:
-  // If a delivery collected cash or UPI, it represents revenue on delivery.
-  // Separate transactions might represent due clearances or bank transfers.
-  const totalCashCollected = Math.max(totalCashFromDeliveries, totalCashFromTx);
-  const totalUpiCollected = Math.max(totalUpiFromDeliveries, totalUpiFromTx);
-  const totalBankTransferCollected = totalBankTx;
+  // Total Cash & UPI = Delivery collections + standalone Due/Deposit settlements
+  // (Fallback Math.max with totalCashFromAllTx in case a standalone REFILL_PAYMENT transaction exists without a delivery log)
+  const totalCashCollected = Math.max(deliveryCashCollected + dueClearanceCash, totalCashFromAllTx);
+  const totalUpiCollected = Math.max(deliveryUpiCollected + dueClearanceUpi, totalUpiFromAllTx);
+  const totalBankTransferCollected = dueClearanceBank;
   const totalSettledAmount = totalCashCollected + totalUpiCollected + totalBankTransferCollected;
 
   return {
@@ -139,7 +180,13 @@ export function computeDayAccountingSummary(
     totalUpiCollected,
     totalBankTransferCollected,
     totalCreditPending,
-    totalDueClearances
+    totalDueClearances,
+    deliveryCashCollected,
+    deliveryUpiCollected,
+    dueClearanceCash,
+    dueClearanceUpi,
+    dueClearanceBank,
+    dueClearanceCount
   };
 }
 
@@ -179,12 +226,12 @@ export function generateUnifiedDayBookCSV(
     'Voucher_Date',
     'Voucher_Time',
     'Voucher_Type',
-    'Party_Customer_Name',
+    'Customer_Name',
     'Customer_Phone',
     'Customer_Address',
     'Route',
-    'Staff_Driver',
-    'Particulars_Item_Description',
+    'Staff',
+    'Item_Description',
     'Qty_Delivered',
     'Empties_Returned',
     'Net_Bottle_Variance',
@@ -244,7 +291,7 @@ export function generateUnifiedDayBookCSV(
       phone,
       address,
       route,
-      d.workerName || 'Staff Driver',
+      d.workerName || 'Staff',
       d.itemType || '20L Normal Water Jar',
       jars,
       empties,
@@ -302,7 +349,7 @@ export function generateUnifiedDayBookCSV(
       cust?.phone || '',
       cust?.address || '',
       cust?.route || 'Direct',
-      'Finance / Admin Desk',
+      'Admin',
       t.type.replace(/_/g, ' '),
       0, // Qty
       0, // Empties
@@ -353,7 +400,7 @@ export function generateDeliveriesCSV(
     'Customer_Name',
     'Phone_Number',
     'Delivery_Address',
-    'Assigned_Driver',
+    'Staff',
     'Product_Item',
     'Jars_Delivered',
     'Empty_Jars_Collected',
@@ -527,11 +574,11 @@ export function generateGoogleSheetsTSV(
     'Date',
     'Time',
     'Voucher Type',
-    'Customer / Party',
+    'Customer',
     'Phone',
     'Address',
     'Route',
-    'Staff / Driver',
+    'Staff',
     'Description',
     'Qty Delivered',
     'Empties Returned',
@@ -577,7 +624,7 @@ export function generateGoogleSheetsTSV(
       phone,
       address,
       route,
-      d.workerName || 'Staff Driver',
+      d.workerName || 'Staff',
       d.itemType || '20L Normal Water Jar',
       jars,
       empties,
@@ -619,7 +666,7 @@ export function generateGoogleSheetsTSV(
       phone,
       address,
       route,
-      'Cashier / Office',
+      'Admin',
       t.type.replace(/_/g, ' '),
       0,
       0,

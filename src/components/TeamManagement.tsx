@@ -8,11 +8,9 @@ import {
   Trash2, 
   Check, 
   AlertCircle, 
-  Sparkles,
   MessageSquare,
   Building2,
-  Crown,
-  Share2
+  Crown
 } from 'lucide-react';
 import { CardSpotlight } from './ui/CardSpotlight';
 import { ModalWrapper } from './ui/ModalWrapper';
@@ -283,12 +281,6 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({
             </div>
 
             {/* Explanatory Callout */}
-            <div className="p-3 bg-sky-50/70 border border-sky-200/80 rounded-xl text-xs text-sky-900 flex items-start gap-2">
-              <Sparkles className="w-4 h-4 text-sky-600 mt-0.5 shrink-0" />
-              <div className="leading-relaxed">
-                <strong>Google Pay for Business Integration:</strong> When this worker logs in using phone number <strong>{workerPhone ? formatPhone(workerPhone) : '[Mobile Number]'}</strong>, they will be given the choice to continue with <strong>{business.name}</strong> as an authorized {role}!
-              </div>
-            </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <button

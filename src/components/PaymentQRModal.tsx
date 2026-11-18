@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Download
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { BusinessAccount, UserSessionProfile } from '../types';
 
 interface PaymentQRModalProps {
@@ -56,6 +57,7 @@ export const PaymentQRModal: React.FC<PaymentQRModalProps> = ({
   const [note, setNote] = useState<string>(initialNote || 'Water Jar Refill Payment');
   const [isEditingVpa, setIsEditingVpa] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [printDone, setPrintDone] = useState<boolean>(false);
 
   // Synchronize VPA, amount, note, and payee name whenever the modal opens or business data changes
   React.useEffect(() => {
@@ -106,14 +108,69 @@ export const PaymentQRModal: React.FC<PaymentQRModalProps> = ({
 *UPI ID (VPA):* ${vpa}
 *Note:* ${note}
 ----------------------------------------
-👉 *Tap to pay directly with Google Pay / PhonePe / Paytm / BHIM:*
+👉 *Tap to pay directly via any UPI App:*
 ${upiUrl}`;
     
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+    const link = document.createElement('a');
+    link.href = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handlePrint = () => {
-    window.print();
+    let nativePrintTriggered = false;
+    const onBeforePrint = () => {
+      nativePrintTriggered = true;
+    };
+    window.addEventListener('beforeprint', onBeforePrint, { once: true });
+
+    try {
+      window.print();
+    } catch (e) {
+      console.warn('window.print error:', e);
+    }
+
+    setTimeout(() => {
+      window.removeEventListener('beforeprint', onBeforePrint);
+      if (!nativePrintTriggered) {
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        if (typeof (doc as any).autoPrint === 'function') {
+          (doc as any).autoPrint();
+        }
+        const pageWidth = doc.internal.pageSize.getWidth();
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, pageWidth, 8, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(15, 23, 42);
+        doc.text(payeeName || 'Water Distribution', pageWidth / 2, 28, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`UPI ID: ${vpa || defaultVpa || 'Not Configured'}`, pageWidth / 2, 36, { align: 'center' });
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(15, 23, 42);
+        doc.text(
+          numAmount > 0 ? `Amount: Rs. ${numAmount.toLocaleString('en-IN')}` : 'Scan & Pay Any Amount',
+          pageWidth / 2,
+          48,
+          { align: 'center' }
+        );
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`UPI Payment URI: ${upiUrl}`, pageWidth / 2, 58, { align: 'center', maxWidth: 170 });
+        const cleanName = (payeeName || 'UPI_Standee').replace(/[^a-zA-Z0-9]/g, '_');
+        doc.save(`${cleanName}_UPI_Standee.pdf`);
+        onToast?.('Downloaded printable UPI Standee PDF!');
+      }
+      setPrintDone(true);
+      setTimeout(() => setPrintDone(false), 2500);
+    }, 250);
   };
 
   const quickAmounts = [35, 70, 100, 150, 300, 500, 1000];
@@ -121,11 +178,11 @@ ${upiUrl}`;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-150">
       <div 
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md max-h-[95vh] flex flex-col overflow-hidden text-slate-800"
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md max-h-[85dvh] sm:max-h-[90vh] flex flex-col overflow-hidden text-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between shrink-0">
+        <div className="px-4 py-3 sm:px-5 sm:py-4 bg-slate-900 text-white border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
               <QrCode className="w-4 h-4" />
@@ -144,7 +201,7 @@ ${upiUrl}`;
         </div>
 
         {/* Body Content */}
-        <div className="p-5 overflow-y-auto space-y-4 text-xs">
+        <div className="p-3.5 sm:p-5 overflow-y-auto overscroll-contain modal-scroll-body flex-1 min-h-0 space-y-3.5 sm:space-y-4 text-xs">
           {/* Dynamic Amount Input */}
           <div>
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">
@@ -194,7 +251,7 @@ ${upiUrl}`;
           </div>
 
           {/* QR Code Standee Card (Printable) */}
-          <div className="bg-gradient-to-b from-indigo-50/70 to-slate-50 p-4 rounded-2xl border border-indigo-100/80 text-center space-y-3 shadow-2xs">
+          <div className="bg-gradient-to-b from-indigo-50/70 to-slate-50 p-3 sm:p-4 rounded-2xl border border-indigo-100/80 text-center space-y-2.5 sm:space-y-3 shadow-2xs">
             <div className="space-y-0.5">
               <div className="flex items-center justify-center gap-1.5 font-bold text-sm text-slate-900">
                 <Building2 className="w-4 h-4 text-indigo-600" />
@@ -206,11 +263,11 @@ ${upiUrl}`;
             </div>
 
             {/* High-Res QR Code Image */}
-            <div className="inline-block bg-white p-3 rounded-2xl border border-slate-200/90 shadow-sm mx-auto">
+            <div className="inline-block bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 shadow-sm mx-auto">
               <img
                 src={qrImageUrl}
                 alt="Dynamic UPI QR Code"
-                className="w-44 h-44 sm:w-48 sm:h-48 object-contain mx-auto rounded-lg"
+                className="w-36 h-36 sm:w-48 sm:h-48 object-contain mx-auto rounded-lg"
               />
             </div>
 
@@ -220,7 +277,7 @@ ${upiUrl}`;
                 {numAmount > 0 ? `Pay ₹${numAmount.toLocaleString('en-IN')}` : 'Scan & Pay Any Amount'}
               </div>
               <p className="text-[10px] text-slate-500">
-                Google Pay • PhonePe • Paytm • BHIM UPI
+                Scan with any UPI App
               </p>
             </div>
           </div>
@@ -313,8 +370,8 @@ ${upiUrl}`;
               onClick={handlePrint}
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all cursor-pointer shadow-xs"
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Print Standee</span>
+              {printDone ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Printer className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{printDone ? 'PDF Saved!' : 'Print Standee'}</span>
             </button>
           </div>
         </div>

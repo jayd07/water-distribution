@@ -51,12 +51,15 @@ export const QuickDeliveryCard: React.FC<QuickDeliveryCardProps> = ({
   const defaultDeliverQty = schedule?.defaultQuantity || 1;
   const [deliverQty, setDeliverQty] = useState<number>(defaultDeliverQty);
   const [emptyQty, setEmptyQty] = useState<number>(defaultDeliverQty);
-  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CREDIT'>('CASH');
+  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CREDIT'>('CREDIT');
   const [showAdjust, setShowAdjust] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [completedAnim, setCompletedAnim] = useState<boolean>(isCompleted);
 
-  const estimatedAmount = deliverQty * defaultJarRate;
+  const unitRate = (typeof customer.customJarRate === 'number' && customer.customJarRate > 0)
+    ? customer.customJarRate
+    : defaultJarRate;
+  const estimatedAmount = deliverQty * unitRate;
 
   const handle1TapDelivery = async () => {
     setIsSubmitting(true);
@@ -90,7 +93,7 @@ export const QuickDeliveryCard: React.FC<QuickDeliveryCardProps> = ({
     e.stopPropagation();
     if (!customer.phone) return;
     const cleanPhone = customer.phone.replace(/\D/g, '').slice(-10);
-    const text = `Hello ${customer.name}, AquaPure Springs delivery update:\nDelivered: ${deliverQty} Water Jar(s)\nEmpty Collected: ${emptyQty}\nAmount: ₹${paymentMode === 'CREDIT' ? '0 (Added to Account)' : estimatedAmount}\nThank you!`;
+    const text = `Hello ${customer.name}, Water delivery update:\nDelivered: ${deliverQty} Water Jar(s)\nEmpty Collected: ${emptyQty}\nAmount: ₹${paymentMode === 'CREDIT' ? '0 (Added to Account)' : estimatedAmount}\nThank you!`;
     window.open(`https://wa.me/91${cleanPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -265,13 +268,13 @@ export const QuickDeliveryCard: React.FC<QuickDeliveryCardProps> = ({
               <div className="grid grid-cols-3 gap-1.5">
                 <Button
                   type="button"
-                  variant={paymentMode === 'CASH' ? 'emerald' : 'secondary'}
+                  variant={paymentMode === 'CREDIT' ? 'amber' : 'secondary'}
                   size="xs"
-                  glow={paymentMode === 'CASH'}
-                  leftIcon={<Banknote className="w-3.5 h-3.5" />}
-                  onClick={() => setPaymentMode('CASH')}
+                  glow={paymentMode === 'CREDIT'}
+                  leftIcon={<Clock className="w-3.5 h-3.5" />}
+                  onClick={() => setPaymentMode('CREDIT')}
                 >
-                  {t.worker.cash}
+                  {t.worker.creditDue}
                 </Button>
                 <Button
                   type="button"
@@ -285,13 +288,13 @@ export const QuickDeliveryCard: React.FC<QuickDeliveryCardProps> = ({
                 </Button>
                 <Button
                   type="button"
-                  variant={paymentMode === 'CREDIT' ? 'amber' : 'secondary'}
+                  variant={paymentMode === 'CASH' ? 'emerald' : 'secondary'}
                   size="xs"
-                  glow={paymentMode === 'CREDIT'}
-                  leftIcon={<Clock className="w-3.5 h-3.5" />}
-                  onClick={() => setPaymentMode('CREDIT')}
+                  glow={paymentMode === 'CASH'}
+                  leftIcon={<Banknote className="w-3.5 h-3.5" />}
+                  onClick={() => setPaymentMode('CASH')}
                 >
-                  {t.worker.creditDue}
+                  {t.worker.cash}
                 </Button>
               </div>
             </div>
@@ -320,8 +323,8 @@ export const QuickDeliveryCard: React.FC<QuickDeliveryCardProps> = ({
               >
                 <span>
                   {isGujarati
-                    ? `${t.worker.deliverAction} ${deliverQty} જાર (₹${paymentMode === 'CREDIT' ? '૦ બાકી' : estimatedAmount})`
-                    : `Deliver ${deliverQty} Full (₹${paymentMode === 'CREDIT' ? '0 Due' : estimatedAmount})`}
+                    ? `${t.worker.deliverAction} ${deliverQty} જાર (${paymentMode === 'CREDIT' ? `₹${estimatedAmount} બાકી` : `₹${estimatedAmount} ${paymentMode}`})`
+                    : `Deliver ${deliverQty} Full (${paymentMode === 'CREDIT' ? `₹${estimatedAmount} Due` : `₹${estimatedAmount} ${paymentMode}`})`}
                 </span>
               </Button>
 

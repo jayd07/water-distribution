@@ -1,15 +1,24 @@
 import React, { useMemo } from 'react';
 import { Truck, IndianRupee, QrCode, AlertCircle } from 'lucide-react';
-import { Customer, DeliveryLog } from '../types';
+import { Customer, DeliveryLog, TransactionRecord } from '../types';
 import { CardSpotlight } from './ui/CardSpotlight';
 import { useLanguage } from '../context/LanguageContext';
 
 interface KpiMetricsProps {
   todayDeliveries: DeliveryLog[];
+  todayTransactions?: TransactionRecord[];
   customers: Customer[];
+  isToday?: boolean;
+  selectedDateLabel?: string;
 }
 
-export const KpiMetrics: React.FC<KpiMetricsProps> = ({ todayDeliveries, customers }) => {
+export const KpiMetrics: React.FC<KpiMetricsProps> = ({
+  todayDeliveries,
+  todayTransactions = [],
+  customers,
+  isToday = true,
+  selectedDateLabel
+}) => {
   const { t, isGujarati } = useLanguage();
 
   const totalDeliveredToday = useMemo(
@@ -23,24 +32,47 @@ export const KpiMetrics: React.FC<KpiMetricsProps> = ({ todayDeliveries, custome
   );
 
   const cashDeliveries = useMemo(
-    () => todayDeliveries.filter((d) => d.paymentMode === 'CASH'),
+    () => todayDeliveries.filter((d) => d.paymentMode === 'CASH' && (Number(d.amountCollected) || 0) > 0),
     [todayDeliveries]
   );
 
-  const totalCashRevenue = useMemo(
-    () => cashDeliveries.reduce((sum, d) => sum + (Number(d.amountCollected) || 0), 0),
-    [cashDeliveries]
+  const cashDueSettlements = useMemo(
+    () => todayTransactions.filter((tx) => tx.type !== 'REFILL_PAYMENT' && tx.paymentMode === 'CASH' && (Number(tx.amount) || 0) > 0),
+    [todayTransactions]
   );
+
+  const totalCashRevenue = useMemo(() => {
+    const fromDeliveries = cashDeliveries.reduce((sum, d) => sum + (Number(d.amountCollected) || 0), 0);
+    const fromDueSettlements = cashDueSettlements.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    const fromAllCashTx = todayTransactions
+      .filter((tx) => tx.paymentMode === 'CASH')
+      .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    return Math.max(fromDeliveries + fromDueSettlements, fromAllCashTx);
+  }, [cashDeliveries, cashDueSettlements, todayTransactions]);
 
   const upiDeliveries = useMemo(
-    () => todayDeliveries.filter((d) => d.paymentMode === 'UPI'),
+    () => todayDeliveries.filter((d) => d.paymentMode === 'UPI' && (Number(d.amountCollected) || 0) > 0),
     [todayDeliveries]
   );
 
-  const totalUpiRevenue = useMemo(
-    () => upiDeliveries.reduce((sum, d) => sum + (Number(d.amountCollected) || 0), 0),
-    [upiDeliveries]
+  const digitalDueSettlements = useMemo(
+    () =>
+      todayTransactions.filter(
+        (tx) =>
+          (tx.type !== 'REFILL_PAYMENT' && (tx.paymentMode === 'UPI' || tx.paymentMode === 'BANK_TRANSFER') && (Number(tx.amount) || 0) > 0) ||
+          (tx.type === 'REFILL_PAYMENT' && tx.paymentMode === 'BANK_TRANSFER' && (Number(tx.amount) || 0) > 0)
+      ),
+    [todayTransactions]
   );
+
+  const totalUpiRevenue = useMemo(() => {
+    const fromDeliveries = upiDeliveries.reduce((sum, d) => sum + (Number(d.amountCollected) || 0), 0);
+    const fromDueSettlements = digitalDueSettlements.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    const fromAllDigitalTx = todayTransactions
+      .filter((tx) => tx.paymentMode === 'UPI' || tx.paymentMode === 'BANK_TRANSFER')
+      .reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    return Math.max(fromDeliveries + fromDueSettlements, fromAllDigitalTx);
+  }, [upiDeliveries, digitalDueSettlements, todayTransactions]);
 
   const totalDuePending = useMemo(
     () => customers.reduce((sum, c) => sum + (Number(c.dueAmount) || 0), 0),
@@ -61,6 +93,12 @@ export const KpiMetrics: React.FC<KpiMetricsProps> = ({ todayDeliveries, custome
   const returnRatePercent =
     totalDeliveredToday > 0 ? Math.round((totalEmptiesToday / totalDeliveredToday) * 100) : null;
 
+  const dispatchTitle = isToday
+    ? t.kpi.todayDispatch
+    : selectedDateLabel
+    ? (isGujarati ? `${selectedDateLabel} વિતરણ` : `${selectedDateLabel} Dispatch`)
+    : t.kpi.todayDispatch;
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
       {/* 1. Jars Dispatched */}
@@ -74,7 +112,7 @@ export const KpiMetrics: React.FC<KpiMetricsProps> = ({ todayDeliveries, custome
         <div>
           <div className="flex items-center justify-between gap-1">
             <span className="text-[11px] sm:text-xs font-bold text-slate-600 uppercase tracking-wider truncate">
-              {t.kpi.todayDispatch}
+              {dispatchTitle}
             </span>
             <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/80 shadow-2xs shrink-0">
               <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -144,7 +182,15 @@ export const KpiMetrics: React.FC<KpiMetricsProps> = ({ todayDeliveries, custome
             {cashDeliveries.length}
           </span>
           <span>{t.kpi.cashDrops}</span>
-          {totalTodayRevenue > 0 && (
+          {cashDueSettlements.length > 0 && (
+            <>
+              <span className="text-slate-300 font-bold" aria-hidden="true">·</span>
+              <span className="font-mono tabular-nums text-emerald-700 font-semibold">
+                +{cashDueSettlements.length} {isGujarati ? 'બાકી વસૂલાત' : 'due settled'}
+              </span>
+            </>
+          )}
+          {totalTodayRevenue > 0 && cashDueSettlements.length === 0 && (
             <>
               <span className="text-slate-300 font-bold" aria-hidden="true">·</span>
               <span className="font-mono tabular-nums text-slate-500">
@@ -186,10 +232,18 @@ export const KpiMetrics: React.FC<KpiMetricsProps> = ({ todayDeliveries, custome
         {/* Clean unboxed secondary metadata */}
         <div className="text-[10px] sm:text-xs text-slate-600 mt-2 sm:mt-2.5 flex items-center gap-1 sm:gap-1.5 flex-wrap font-medium leading-normal">
           <span className="font-mono tabular-nums text-slate-800 font-semibold">
-            {upiDeliveries.length}
+            {upiDeliveries.length + digitalDueSettlements.length}
           </span>
           <span>{t.kpi.digitalSettlements}</span>
-          {totalTodayRevenue > 0 && (
+          {digitalDueSettlements.length > 0 && (
+            <>
+              <span className="text-slate-300 font-bold" aria-hidden="true">·</span>
+              <span className="font-mono tabular-nums text-indigo-700 font-semibold">
+                {digitalDueSettlements.length} {isGujarati ? 'બાકી વસૂલાત' : 'due recovery'}
+              </span>
+            </>
+          )}
+          {totalTodayRevenue > 0 && digitalDueSettlements.length === 0 && (
             <>
               <span className="text-slate-300 font-bold" aria-hidden="true">·</span>
               <span className="font-mono tabular-nums text-slate-500">

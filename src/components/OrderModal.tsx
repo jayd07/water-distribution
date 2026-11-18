@@ -171,33 +171,35 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-      <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[95vh] flex flex-col">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+      <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[85dvh] sm:max-h-[90vh] flex flex-col">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 bg-slate-900 text-white border-b border-slate-800 shrink-0">
-          <div>
-            <h3 className="font-semibold text-base leading-tight">
+        <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5 bg-slate-900 text-white border-b border-slate-800 shrink-0">
+          <div className="min-w-0 pr-2">
+            <h3 className="font-semibold text-sm sm:text-base leading-tight truncate">
               {editingOrder ? 'Modify Cooler / Jar Order' : 'Book Cooler & Jar Order (Function / Event)'}
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-[11px] sm:text-xs text-slate-400 truncate">
               {editingOrder ? `Updating Order #${editingOrder.id}` : 'Reserve coolers, dispensers, or event bulk water jars'}
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             id="close-order-modal-btn"
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer shrink-0"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4 text-xs">
+        {/* Form Body & Pinned Sticky Footer */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden text-xs">
+          <div className="p-3.5 sm:p-5 overflow-y-auto overscroll-contain modal-scroll-body space-y-3 sm:space-y-4 flex-1 min-h-0">
           
           {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-700 text-xs font-medium">
+            <div className="p-2.5 sm:p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-700 text-xs font-medium">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
@@ -429,14 +431,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Assigned Delivery Driver / Van
+                Assigned Staff / Vehicle
               </label>
               <div className="relative">
                 <Truck className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   id="order-assigned-driver-input"
-                  placeholder="e.g., Assigned Driver / Staff Name"
+                  placeholder="Enter staff or vehicle"
                   value={assignedDriver}
                   onChange={e => setAssignedDriver(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-3 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -459,8 +461,10 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+          </div>
+
+          {/* Sticky Pinned Action buttons */}
+          <div className="px-4 py-3 sm:px-5 sm:py-3.5 bg-white border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
             <Button
               type="button"
               variant="secondary"

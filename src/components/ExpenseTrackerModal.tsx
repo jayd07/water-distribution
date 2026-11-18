@@ -97,48 +97,48 @@ export const ExpenseTrackerModal: React.FC<ExpenseTrackerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85dvh] sm:max-h-[90vh]">
         
         {/* Header */}
-        <div className="px-6 py-4.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-              <Banknote className="w-5 h-5" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+              <Banknote className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Field Expenses & Fuel</h3>
-              <p className="text-xs text-slate-500">Track operating costs, fuel & driver allowances</p>
+              <h3 className="text-sm sm:text-base font-bold text-slate-900">Field Expenses & Fuel</h3>
+              <p className="text-[11px] sm:text-xs text-slate-500">Track operating costs, fuel & driver allowances</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Total Cost Stats Strip */}
-        <div className="bg-slate-900 text-white p-4.5 grid grid-cols-2 gap-3 text-xs">
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/10">
-            <span className="text-slate-400 block text-[11px]">Today's Expenses</span>
-            <strong className="text-lg font-bold text-rose-400 tabular-nums">
+        <div className="bg-slate-900 text-white p-3 sm:p-4.5 grid grid-cols-2 gap-2.5 sm:gap-3 text-xs shrink-0">
+          <div className="bg-white/10 rounded-xl sm:rounded-2xl p-2.5 sm:p-3 border border-white/10">
+            <span className="text-slate-400 block text-[10px] sm:text-[11px]">Today's Expenses</span>
+            <strong className="text-base sm:text-lg font-bold text-rose-400 tabular-nums">
               ₹{todaySpent.toLocaleString()}
             </strong>
           </div>
 
-          <div className="bg-white/10 rounded-2xl p-3 border border-white/10">
-            <span className="text-slate-400 block text-[11px]">Total Recorded</span>
-            <strong className="text-lg font-bold text-slate-200 tabular-nums">
+          <div className="bg-white/10 rounded-xl sm:rounded-2xl p-2.5 sm:p-3 border border-white/10">
+            <span className="text-slate-400 block text-[10px] sm:text-[11px]">Total Recorded</span>
+            <strong className="text-base sm:text-lg font-bold text-slate-200 tabular-nums">
               ₹{totalSpent.toLocaleString()}
             </strong>
           </div>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto space-y-4">
+        <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain modal-scroll-body flex-1 min-h-0 space-y-4">
           
           {errorMsg && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
@@ -148,7 +148,7 @@ export const ExpenseTrackerModal: React.FC<ExpenseTrackerModalProps> = ({
           )}
 
           {isAdding ? (
-            <form onSubmit={handleSubmit} className="space-y-4 bg-slate-50 p-5 rounded-2xl border border-slate-200">
+            <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4 bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200">
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                 Log New Expense
               </h4>
@@ -221,7 +221,7 @@ export const ExpenseTrackerModal: React.FC<ExpenseTrackerModalProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="sticky bottom-0 z-10 bg-slate-50 pt-2.5 pb-0.5 border-t border-slate-200/80 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsAdding(false)}

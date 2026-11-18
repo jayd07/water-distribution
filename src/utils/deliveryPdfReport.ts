@@ -79,7 +79,7 @@ export function generateDailyWhatsAppSummary(
   const summary: DayAccountingSummary = computeDayAccountingSummary(targetDateStr, deliveries, transactions);
   const driverStats = computeDriverBreakdown(dayDeliveries);
 
-  const bizName = business?.name || 'AquaPure Springs';
+  const bizName = business?.name || 'Water Supply Management';
   const bizPhone = business?.ownerPhone ? ` | 📞 ${business.ownerPhone}` : '';
 
   const netJarVariance = summary.totalJarsDelivered - summary.totalEmptiesCollected;
@@ -106,15 +106,12 @@ export function generateDailyWhatsAppSummary(
   text += `\n`;
 
   if (driverStats.length > 0) {
-    text += `🚚 *DRIVER BREAKDOWN (${driverStats.length})*\n`;
+    text += `🚚 *STAFF SUMMARY (${driverStats.length})*\n`;
     driverStats.forEach(ds => {
       text += `• *${ds.driverName}*: ${ds.dropsCount} drops | Out: ${ds.jarsDelivered} | In: ${ds.emptiesCollected} | ₹${ds.totalCollected}\n`;
     });
     text += `\n`;
   }
-
-  text += `📄 *Downloadable PDF Summary Generated*\n`;
-  text += `_Verified & Logged via AquaPure Springs Management_`;
 
   return text;
 }
@@ -153,10 +150,10 @@ export function buildDailyDeliveryPdf(
   const summary = computeDayAccountingSummary(targetDateStr, deliveries, transactions);
   const driverStats = computeDriverBreakdown(dayDeliveries);
 
-  const bizName = (business?.name || 'AquaPure Springs Water Distribution').trim();
+  const bizName = (business?.name || 'Water Supply Management').trim();
   const bizAddress = business?.address?.trim() 
     ? `${business.address}${business.city ? `, ${business.city}` : ''}`
-    : 'Water Distribution & Logistics Center';
+    : (business?.city?.trim() || '');
   const bizPhone = business?.ownerPhone || '';
   const bizGstin = business?.gstin || '';
 
@@ -184,8 +181,11 @@ export function buildDailyDeliveryPdf(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(100, 116, 139); // slate-500
-  let headerY = 20;
-  doc.text(bizAddress, margin, headerY);
+  let headerY = 15.5;
+  if (bizAddress) {
+    headerY += 4.5;
+    doc.text(bizAddress, margin, headerY);
+  }
 
   const contactPieces: string[] = [];
   if (bizPhone) contactPieces.push(`Phone: +91 ${bizPhone}`);
@@ -255,14 +255,20 @@ export function buildDailyDeliveryPdf(
   // Table Data Preparation
   const tableHead = [
     [
-      '#',
-      'Time',
-      'Customer Name & Contact',
-      'Route / Address',
-      'Out',
-      'In',
-      ...(includeFinancials ? ['Amt Paid', 'Mode', 'Status'] : []),
-      'Staff / Driver'
+      { content: '#', styles: { halign: 'center' as const, valign: 'middle' as const } },
+      { content: 'Time', styles: { halign: 'center' as const, valign: 'middle' as const } },
+      { content: 'Customer Name & Contact', styles: { halign: 'left' as const, valign: 'middle' as const } },
+      { content: 'Route / Address', styles: { halign: 'left' as const, valign: 'middle' as const } },
+      { content: 'Out', styles: { halign: 'center' as const, valign: 'middle' as const } },
+      { content: 'In', styles: { halign: 'center' as const, valign: 'middle' as const } },
+      ...(includeFinancials
+        ? [
+            { content: 'Amt Paid', styles: { halign: 'right' as const, valign: 'middle' as const } },
+            { content: 'Mode', styles: { halign: 'center' as const, valign: 'middle' as const } },
+            { content: 'Status', styles: { halign: 'center' as const, valign: 'middle' as const } }
+          ]
+        : []),
+      { content: 'Staff', styles: { halign: 'left' as const, valign: 'middle' as const } }
     ]
   ];
 
@@ -283,7 +289,7 @@ export function buildDailyDeliveryPdf(
     const jarsOut = String(del.jarsDelivered || 0);
     const jarsIn = String(del.emptyJarsCollected || 0);
 
-    const row = [
+    const row: any[] = [
       String(idx + 1),
       dTime,
       `${custName}${custContact}`,
@@ -293,7 +299,7 @@ export function buildDailyDeliveryPdf(
     ];
 
     if (includeFinancials) {
-      const amt = Number(del.amountCollected) || 0;
+      const amt = del.paymentMode === 'CREDIT' ? 0 : (Number(del.amountCollected) || 0);
       row.push(`Rs. ${amt.toLocaleString('en-IN')}`);
       row.push(del.paymentMode || 'CASH');
       row.push(del.paymentMode === 'CREDIT' ? 'Due' : 'Paid');
@@ -303,16 +309,45 @@ export function buildDailyDeliveryPdf(
     return row;
   });
 
-  // Footer Totals Row
-  const totalRow = [
-    'TOTAL',
-    '',
-    `${dayDeliveries.length} drops`,
-    '',
-    String(summary.totalJarsDelivered),
-    String(summary.totalEmptiesCollected),
-    ...(includeFinancials ? [`Rs. ${summary.totalSettledAmount.toLocaleString('en-IN')}`, '', ''] : []),
-    ''
+  // Compute exact column totals for the Delivery Log table footer
+  const totalJarsOut = dayDeliveries.reduce((acc, d) => acc + (Number(d.jarsDelivered) || 0), 0);
+  const totalEmptiesIn = dayDeliveries.reduce((acc, d) => acc + (Number(d.emptyJarsCollected) || 0), 0);
+  const totalDeliveryPaid = dayDeliveries.reduce(
+    (acc, d) => acc + (d.paymentMode !== 'CREDIT' ? (Number(d.amountCollected) || 0) : 0),
+    0
+  );
+
+  // Footer Totals Row: only TOTAL, Out, In, and Amount
+  const totalRow: any[] = [
+    {
+      content: 'TOTAL',
+      colSpan: 4,
+      styles: { halign: 'right' as const, valign: 'middle' as const, fontStyle: 'bold' as const }
+    },
+    {
+      content: String(totalJarsOut),
+      styles: { halign: 'center' as const, valign: 'middle' as const, fontStyle: 'bold' as const }
+    },
+    {
+      content: String(totalEmptiesIn),
+      styles: { halign: 'center' as const, valign: 'middle' as const, fontStyle: 'bold' as const }
+    },
+    ...(includeFinancials
+      ? [
+          {
+            content: `Rs. ${totalDeliveryPaid.toLocaleString('en-IN')}`,
+            styles: { halign: 'right' as const, valign: 'middle' as const, fontStyle: 'bold' as const }
+          },
+          {
+            content: '',
+            colSpan: 3
+          }
+        ]
+      : [
+          {
+            content: ''
+          }
+        ])
   ];
 
   // Render Table
@@ -326,7 +361,8 @@ export function buildDailyDeliveryPdf(
     styles: {
       font: 'helvetica',
       fontSize: 7.5,
-      cellPadding: 2,
+      cellPadding: 2.2,
+      valign: 'middle',
       textColor: [30, 41, 59],
       lineColor: [226, 232, 240],
       lineWidth: 0.2
@@ -335,31 +371,35 @@ export function buildDailyDeliveryPdf(
       fillColor: [15, 23, 42], // slate-900
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 7.5
+      fontSize: 7.5,
+      valign: 'middle'
     },
     footStyles: {
       fillColor: [241, 245, 249], // slate-100
       textColor: [15, 23, 42],
       fontStyle: 'bold',
-      fontSize: 8
+      fontSize: 7.5,
+      valign: 'middle'
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252]
     },
     tableWidth: 182,
     columnStyles: {
-      0: { cellWidth: 7, halign: 'center' },
-      1: { cellWidth: 15 },
-      2: { cellWidth: 36 },
-      3: { cellWidth: 34 },
+      0: { cellWidth: 9, halign: 'center' },
+      1: { cellWidth: 17, halign: 'center' },
+      2: { cellWidth: 36, halign: 'left' },
+      3: { cellWidth: 32, halign: 'left' },
       4: { cellWidth: 11, halign: 'center', fontStyle: 'bold' },
-      5: { cellWidth: 11, halign: 'center' },
+      5: { cellWidth: 11, halign: 'center', fontStyle: 'bold' },
       ...(includeFinancials ? {
-        6: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
+        6: { cellWidth: 20, halign: 'right', fontStyle: 'bold' },
         7: { cellWidth: 14, halign: 'center' },
-        8: { cellWidth: 14, halign: 'center' }
-      } : {}),
-      ...(includeFinancials ? { 9: { cellWidth: 22 } } : { 6: { cellWidth: 25 } })
+        8: { cellWidth: 13, halign: 'center' },
+        9: { cellWidth: 19, halign: 'left' }
+      } : {
+        6: { cellWidth: 66, halign: 'left' }
+      })
     }
   });
 
@@ -378,14 +418,23 @@ export function buildDailyDeliveryPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(15, 23, 42);
-    doc.text('DRIVER & ROUTE SUMMARY RECONCILIATION', margin, currentY);
+    doc.text('STAFF SUMMARY', margin, currentY);
 
-    const driverHead = [['Driver / Route Staff', 'Deliveries', 'Jars Delivered', 'Empties Returned', 'Cash Collected', 'UPI Collected', 'Total Remitted']];
+    const driverHead = [[
+      { content: 'Staff', styles: { halign: 'left' as const, valign: 'middle' as const } },
+      { content: 'Deliveries', styles: { halign: 'center' as const, valign: 'middle' as const } },
+      { content: 'Jars Delivered', styles: { halign: 'center' as const, valign: 'middle' as const } },
+      { content: 'Empties Returned', styles: { halign: 'center' as const, valign: 'middle' as const } },
+      { content: 'Cash Collected', styles: { halign: 'right' as const, valign: 'middle' as const } },
+      { content: 'UPI Collected', styles: { halign: 'right' as const, valign: 'middle' as const } },
+      { content: 'Total', styles: { halign: 'right' as const, valign: 'middle' as const } }
+    ]];
+
     const driverBody = driverStats.map(ds => [
       ds.driverName,
-      `${ds.dropsCount} drops`,
-      `${ds.jarsDelivered} jars`,
-      `${ds.emptiesCollected} empties`,
+      `${ds.dropsCount} ${ds.dropsCount === 1 ? 'drop' : 'drops'}`,
+      `${ds.jarsDelivered} ${ds.jarsDelivered === 1 ? 'jar' : 'jars'}`,
+      `${ds.emptiesCollected} ${ds.emptiesCollected === 1 ? 'empty' : 'empties'}`,
       `Rs. ${ds.cashCollected.toLocaleString('en-IN')}`,
       `Rs. ${ds.upiCollected.toLocaleString('en-IN')}`,
       `Rs. ${ds.totalCollected.toLocaleString('en-IN')}`
@@ -400,18 +449,21 @@ export function buildDailyDeliveryPdf(
       styles: {
         font: 'helvetica',
         fontSize: 7.5,
-        cellPadding: 1.8,
+        cellPadding: 2,
+        valign: 'middle',
+        textColor: [30, 41, 59],
         lineColor: [226, 232, 240],
         lineWidth: 0.2
       },
       headStyles: {
         fillColor: [30, 41, 59],
         textColor: [255, 255, 255],
-        fontStyle: 'bold'
+        fontStyle: 'bold',
+        valign: 'middle'
       },
       tableWidth: 182,
       columnStyles: {
-        0: { cellWidth: 41 },
+        0: { cellWidth: 41, halign: 'left' },
         1: { cellWidth: 20, halign: 'center' },
         2: { cellWidth: 22, halign: 'center' },
         3: { cellWidth: 24, halign: 'center' },
@@ -424,34 +476,17 @@ export function buildDailyDeliveryPdf(
     currentY = (doc as any).lastAutoTable?.finalY || currentY + 30;
   }
 
-  // Signature and Verification Block
-  if (currentY > pageHeight - 35) {
-    doc.addPage();
-    currentY = 25;
-  } else {
-    currentY += 12;
-  }
-
-  doc.setDrawColor(203, 213, 225); // slate-300
-  doc.setLineWidth(0.3);
-
-  // Signature lines
-  const sig1X = margin + 10;
-  const sig2X = pageWidth - margin - 60;
-  doc.line(sig1X, currentY + 10, sig1X + 50, currentY + 10);
-  doc.line(sig2X, currentY + 10, sig2X + 50, currentY + 10);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text('Prepared By / Warehouse Dispatcher', sig1X + 2, currentY + 14);
-  doc.text('Driver / Logistics Verified Signature', sig2X + 2, currentY + 14);
-
   if (notes) {
+    if (currentY > pageHeight - 25) {
+      doc.addPage();
+      currentY = 20;
+    } else {
+      currentY += 8;
+    }
     doc.setFont('helvetica', 'italic');
-    doc.setFontSize(7);
+    doc.setFontSize(7.5);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Note: ${notes}`, margin, currentY + 20);
+    doc.text(`Note: ${notes}`, margin, currentY);
   }
 
   // Page numbers on all pages
@@ -462,15 +497,10 @@ export function buildDailyDeliveryPdf(
     doc.setFontSize(7);
     doc.setTextColor(148, 163, 184); // slate-400
     doc.text(
-      `AquaPure Springs Management System • Page ${i} of ${totalPages}`,
+      `${bizName} • Page ${i} of ${totalPages}`,
       pageWidth / 2,
       pageHeight - 6,
       { align: 'center' }
-    );
-    doc.text(
-      `Confidential & Proprietary • Computer Generated Report`,
-      margin,
-      pageHeight - 6
     );
   }
 
@@ -489,14 +519,14 @@ export function downloadDailyDeliveryPdf(
   options?: PdfReportOptions
 ): string {
   const doc = buildDailyDeliveryPdf(targetDateStr, deliveries, transactions, customersMap, business, options);
-  const cleanBizName = (business?.name || 'AquaPure').replace(/[^a-zA-Z0-9]/g, '_');
+  const cleanBizName = (business?.name || 'Water_Supply').replace(/[^a-zA-Z0-9]/g, '_');
   const filename = `${cleanBizName}_Daily_Delivery_Summary_${targetDateStr}.pdf`;
   doc.save(filename);
   return filename;
 }
 
 /**
- * Prints the generated PDF document using a hidden iframe
+ * Prints the generated PDF document, falling back to auto-print PDF download when sandboxed
  */
 export function printDailyDeliveryPdf(
   targetDateStr: string,
@@ -505,8 +535,20 @@ export function printDailyDeliveryPdf(
   customersMap: Map<string, Customer>,
   business?: BusinessAccount | null,
   options?: PdfReportOptions
-): void {
+): string {
   const doc = buildDailyDeliveryPdf(targetDateStr, deliveries, transactions, customersMap, business, options);
+  if (typeof (doc as any).autoPrint === 'function') {
+    (doc as any).autoPrint();
+  }
+  const cleanBizName = (business?.name || 'Water_Supply').replace(/[^a-zA-Z0-9]/g, '_');
+  const filename = `${cleanBizName}_Daily_Delivery_Summary_${targetDateStr}.pdf`;
+
+  let printDialogOpened = false;
+  const onBeforePrint = () => {
+    printDialogOpened = true;
+  };
+  window.addEventListener('beforeprint', onBeforePrint, { once: true });
+
   const blob = doc.output('blob');
   const blobUrl = URL.createObjectURL(blob);
 
@@ -514,27 +556,42 @@ export function printDailyDeliveryPdf(
   iframe.style.position = 'fixed';
   iframe.style.right = '0';
   iframe.style.bottom = '0';
-  iframe.style.width = '0';
-  iframe.style.height = '0';
+  iframe.style.width = '1px';
+  iframe.style.height = '1px';
+  iframe.style.opacity = '0';
+  iframe.style.pointerEvents = 'none';
   iframe.style.border = '0';
   iframe.src = blobUrl;
 
   document.body.appendChild(iframe);
 
+  // If browser or sandboxed iframe blocks print(), automatically save the print-ready PDF within 350ms
+  const fallbackTimer = setTimeout(() => {
+    window.removeEventListener('beforeprint', onBeforePrint);
+    if (!printDialogOpened) {
+      doc.save(filename);
+    }
+  }, 350);
+
   iframe.onload = () => {
+    try {
+      iframe.contentWindow?.addEventListener('beforeprint', onBeforePrint, { once: true });
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch (e) {
+      clearTimeout(fallbackTimer);
+      window.removeEventListener('beforeprint', onBeforePrint);
+      doc.save(filename);
+    }
     setTimeout(() => {
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-      } catch (e) {
-        console.warn('Silent print blocked, opening in window:', e);
-      }
-      setTimeout(() => {
+      if (document.body.contains(iframe)) {
         document.body.removeChild(iframe);
-        URL.revokeObjectURL(blobUrl);
-      }, 3000);
-    }, 300);
+      }
+      URL.revokeObjectURL(blobUrl);
+    }, 5000);
   };
+
+  return filename;
 }
 
 /**
@@ -549,7 +606,7 @@ export async function shareDailyDeliveryPdfOrWhatsApp(
   options?: PdfReportOptions
 ): Promise<{ method: 'WEB_SHARE' | 'WHATSAPP_LINK' | 'CLIPBOARD'; message: string }> {
   const summaryText = generateDailyWhatsAppSummary(targetDateStr, deliveries, transactions, business);
-  const cleanBizName = (business?.name || 'AquaPure').replace(/[^a-zA-Z0-9]/g, '_');
+  const cleanBizName = (business?.name || 'Water_Supply').replace(/[^a-zA-Z0-9]/g, '_');
   const filename = `${cleanBizName}_Daily_Delivery_Summary_${targetDateStr}.pdf`;
 
   // 1. Try Web Share API with actual PDF file attachment (supported on Chrome Android, Safari iOS, etc.)
@@ -560,7 +617,7 @@ export async function shareDailyDeliveryPdfOrWhatsApp(
 
     if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
       await navigator.share({
-        title: `${business?.name || 'AquaPure'} Daily Delivery Log (${targetDateStr})`,
+        title: `${business?.name || 'Water Supply'} Daily Delivery Log (${targetDateStr})`,
         text: summaryText,
         files: [pdfFile]
       });
@@ -571,7 +628,7 @@ export async function shareDailyDeliveryPdfOrWhatsApp(
     } else if (typeof navigator.share === 'function') {
       // Browser supports Web Share API for text summary
       await navigator.share({
-        title: `${business?.name || 'AquaPure'} Daily Delivery Log (${targetDateStr})`,
+        title: `${business?.name || 'Water Supply'} Daily Delivery Log (${targetDateStr})`,
         text: summaryText
       });
       return {

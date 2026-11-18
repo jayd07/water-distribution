@@ -74,11 +74,11 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ type: 'spring', damping: 25, stiffness: 350 }}
             onClick={(e) => e.stopPropagation()}
-            className={`w-full ${maxWidthStyles[maxWidth]} bg-white rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[90vh] my-auto ${className}`}
+            className={`w-full ${maxWidthStyles[maxWidth]} bg-white rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[85dvh] sm:max-h-[90vh] my-auto ${className}`}
           >
             {/* Modal Header */}
             {(title || showCloseButton) && (
-              <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/60 shrink-0">
+              <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-slate-100 flex items-center justify-between gap-3 bg-slate-50/60 shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
                   {icon && <div className="shrink-0">{icon}</div>}
                   <div className="min-w-0">
@@ -112,13 +112,13 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
             )}
 
             {/* Modal Body */}
-            <div className="p-5 overflow-y-auto flex-1 text-xs sm:text-sm text-slate-700">
+            <div className="p-3.5 sm:p-5 overflow-y-auto overscroll-contain modal-scroll-body flex-1 min-h-0 text-xs sm:text-sm text-slate-700">
               {children}
             </div>
 
             {/* Modal Footer */}
             {footer && (
-              <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-end gap-2 shrink-0">
+              <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-t border-slate-100 bg-white flex items-center justify-end gap-2 shrink-0">
                 {footer}
               </div>
             )}

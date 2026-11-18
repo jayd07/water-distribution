@@ -41,6 +41,7 @@ export interface DeliveryRecordInput {
   amountCollected: number;
   paymentMode: 'CASH' | 'UPI' | 'CREDIT';
   itemType?: string;
+  unitPrice?: number;
 }
 
 /**
@@ -60,7 +61,8 @@ export async function processDeliveryAtomic(input: DeliveryRecordInput): Promise
     emptyJarsCollected: input.emptyJarsCollected,
     amountCollected: input.amountCollected,
     paymentMode: input.paymentMode,
-    itemType: input.itemType || '20L Normal Water Jar'
+    itemType: input.itemType || '20L Normal Water Jar',
+    unitPrice: input.unitPrice
   }, input.businessId);
 
   // 2. Optimistically sync to Firestore
@@ -83,7 +85,9 @@ export async function processDeliveryAtomic(input: DeliveryRecordInput): Promise
         ? invSnap.data() 
         : { availableStock: 120, borrowedStock: 380, unitPrice: 35.0, displayName: itemType };
 
-      const unitPrice = Number(invData.unitPrice) || 35.0;
+      const unitPrice = input.unitPrice && input.unitPrice > 0
+        ? Number(input.unitPrice)
+        : (Number(invData.unitPrice) || 35.0);
       const orderCost = input.jarsDelivered * unitPrice;
 
       if (custData) {
@@ -139,6 +143,7 @@ export async function processDeliveryAtomic(input: DeliveryRecordInput): Promise
         amountCollected: input.amountCollected,
         paymentMode: input.paymentMode,
         itemType,
+        unitPrice,
         timestamp
       });
 

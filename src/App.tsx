@@ -107,6 +107,7 @@ import { WarehouseSkeleton } from './components/skeletons/WarehouseSkeleton';
 import { OrdersSkeleton } from './components/skeletons/OrdersSkeleton';
 import { AnalyticsSkeleton } from './components/skeletons/AnalyticsSkeleton';
 import { triggerHaptic } from './utils/haptics';
+import { formatDateToYYYYMMDD, isTimestampOnDate } from './utils/csvExport';
 import { useDeploymentCache } from './hooks/useDeploymentCache';
 import { purgeAllAppCaches } from './services/cacheService';
 import { CheckCircle2, AlertCircle, Building2, Plus } from 'lucide-react';
@@ -192,89 +193,109 @@ export default function App() {
     }, 4000);
   };
 
-  const refreshFromLocalStore = (bizId = currentBusiness.id) => {
-    const fresh = getLocalStore(bizId);
+  const refreshFromLocalStore = (bizId?: unknown) => {
+    const targetBizId = typeof bizId === 'string' && bizId.trim() ? bizId.trim() : currentBusiness.id;
+    const fresh = getLocalStore(targetBizId);
     setInventory([...fresh.inventory]);
     setCustomers([...fresh.customers]);
     setDeliveries([...fresh.deliveries]);
     setTransactions([...fresh.transactions]);
     setOrders([...(fresh.orders || [])]);
-    setWorkers(getBusinessWorkers(bizId));
+    setWorkers(getBusinessWorkers(targetBizId));
   };
 
-  const handleManualRefresh = async (bizId = currentBusiness.id) => {
+  const handleManualRefresh = async (bizId?: unknown) => {
+    const targetBizId = typeof bizId === 'string' && bizId.trim() ? bizId.trim() : currentBusiness.id;
     try {
-      if (bizId && bizId !== 'default_business') {
+      localStorage.removeItem('aquapure_data_[object Object]');
+      localStorage.removeItem('aquapure_trips_[object Object]');
+      localStorage.removeItem('aquapure_schedules_[object Object]');
+      localStorage.removeItem('aquapure_expenses_[object Object]');
+    } catch {}
+
+    try {
+      if (targetBizId && targetBizId !== 'default_business') {
         const [invSnap, custSnap, delivSnap, txSnap, ordSnap, tripsSnap, schedSnap, expSnap] = await Promise.allSettled([
-          getDocs(collection(db, `businesses/${bizId}/inventory`)),
-          getDocs(collection(db, `businesses/${bizId}/customers`)),
-          getDocs(query(collection(db, `businesses/${bizId}/deliveries`), orderBy('timestamp', 'desc'), limit(50))),
-          getDocs(query(collection(db, `businesses/${bizId}/transactions`), orderBy('timestamp', 'desc'), limit(30))),
-          getDocs(collection(db, `businesses/${bizId}/orders`)),
-          getDocs(collection(db, `businesses/${bizId}/trips`)),
-          getDocs(collection(db, `businesses/${bizId}/schedules`)),
-          getDocs(collection(db, `businesses/${bizId}/expenses`))
+          getDocs(collection(db, `businesses/${targetBizId}/inventory`)),
+          getDocs(collection(db, `businesses/${targetBizId}/customers`)),
+          getDocs(query(collection(db, `businesses/${targetBizId}/deliveries`), orderBy('timestamp', 'desc'), limit(500))),
+          getDocs(query(collection(db, `businesses/${targetBizId}/transactions`), orderBy('timestamp', 'desc'), limit(500))),
+          getDocs(collection(db, `businesses/${targetBizId}/orders`)),
+          getDocs(collection(db, `businesses/${targetBizId}/trips`)),
+          getDocs(collection(db, `businesses/${targetBizId}/schedules`)),
+          getDocs(collection(db, `businesses/${targetBizId}/expenses`))
         ]);
 
         if (invSnap.status === 'fulfilled' && invSnap.value) {
           const items = invSnap.value.docs
             .map(d => ({ id: d.id, ...(d.data() as Omit<InventoryItem, 'id'>) }))
             .filter(item => !isDummyInventory(item));
-          setInventory(items);
-          const store = getLocalStore(bizId);
-          store.inventory = items;
-          saveLocalStore(store, bizId);
+          if (items.length > 0) {
+            setInventory(items);
+            const store = getLocalStore(targetBizId);
+            store.inventory = items;
+            saveLocalStore(store, targetBizId);
+          }
         }
 
         if (custSnap.status === 'fulfilled' && custSnap.value) {
           const list = custSnap.value.docs
             .map(d => ({ id: d.id, ...(d.data() as Omit<Customer, 'id'>) }))
             .filter(cust => !isDummyCustomer(cust));
-          setCustomers(list);
-          const store = getLocalStore(bizId);
-          store.customers = list;
-          saveLocalStore(store, bizId);
+          const store = getLocalStore(targetBizId);
+          // Preserve local customers if cloud snapshot returned empty while offline/unsynced
+          if (list.length > 0 || store.customers.length === 0) {
+            setCustomers(list);
+            store.customers = list;
+            saveLocalStore(store, targetBizId);
+          }
         }
 
         if (delivSnap.status === 'fulfilled' && delivSnap.value) {
           const list = delivSnap.value.docs
             .map(d => ({ id: d.id, ...(d.data() as Omit<DeliveryLog, 'id'>) }))
             .filter(deliv => !isDummyDelivery(deliv));
-          setDeliveries(list);
-          const store = getLocalStore(bizId);
-          store.deliveries = list;
-          saveLocalStore(store, bizId);
+          const store = getLocalStore(targetBizId);
+          if (list.length > 0 || store.deliveries.length === 0) {
+            setDeliveries(list);
+            store.deliveries = list;
+            saveLocalStore(store, targetBizId);
+          }
         }
 
         if (txSnap.status === 'fulfilled' && txSnap.value) {
           const list = txSnap.value.docs
             .map(d => ({ id: d.id, ...(d.data() as Omit<TransactionRecord, 'id'>) }))
             .filter(tx => !isDummyTransaction(tx));
-          setTransactions(list);
-          const store = getLocalStore(bizId);
-          store.transactions = list;
-          saveLocalStore(store, bizId);
+          const store = getLocalStore(targetBizId);
+          if (list.length > 0 || store.transactions.length === 0) {
+            setTransactions(list);
+            store.transactions = list;
+            saveLocalStore(store, targetBizId);
+          }
         }
 
         if (ordSnap.status === 'fulfilled' && ordSnap.value) {
           const list = ordSnap.value.docs
             .map(d => ({ id: d.id, ...(d.data() as Omit<OrderBooking, 'id'>) }))
             .filter(ord => !isDummyOrder(ord));
-          setOrders(list);
-          const store = getLocalStore(bizId);
-          store.orders = list;
-          saveLocalStore(store, bizId);
+          const store = getLocalStore(targetBizId);
+          if (list.length > 0 || (store.orders || []).length === 0) {
+            setOrders(list);
+            store.orders = list;
+            saveLocalStore(store, targetBizId);
+          }
         }
 
         if (tripsSnap.status === 'fulfilled' && tripsSnap.value) {
           const list: DeliveryTrip[] = tripsSnap.value.docs.map(docSnap => ({
             id: docSnap.id,
-            businessId: bizId,
+            businessId: targetBizId,
             ...(docSnap.data() as any)
           }));
           list.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
           setTrips(list);
-          localStorage.setItem(`aquapure_trips_${bizId}`, JSON.stringify(list));
+          localStorage.setItem(`aquapure_trips_${targetBizId}`, JSON.stringify(list));
         }
 
         if (schedSnap.status === 'fulfilled' && schedSnap.value) {
@@ -283,24 +304,24 @@ export default function App() {
             ...(docSnap.data() as any)
           }));
           setSchedules(list);
-          localStorage.setItem(`aquapure_schedules_${bizId}`, JSON.stringify(list));
+          localStorage.setItem(`aquapure_schedules_${targetBizId}`, JSON.stringify(list));
         }
 
         if (expSnap.status === 'fulfilled' && expSnap.value) {
           const list: FieldExpense[] = expSnap.value.docs.map(docSnap => ({
             id: docSnap.id,
-            businessId: bizId,
+            businessId: targetBizId,
             ...(docSnap.data() as any)
           }));
           list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
           setExpenses(list);
-          localStorage.setItem(`aquapure_expenses_${bizId}`, JSON.stringify(list));
+          localStorage.setItem(`aquapure_expenses_${targetBizId}`, JSON.stringify(list));
         }
       }
-      refreshFromLocalStore(bizId);
+      refreshFromLocalStore(targetBizId);
     } catch (err) {
       console.warn("Manual sync error:", err);
-      refreshFromLocalStore(bizId);
+      refreshFromLocalStore(targetBizId);
     }
   };
 
@@ -638,7 +659,7 @@ export default function App() {
     const delivQuery = query(
       collection(db, delivPath),
       orderBy('timestamp', 'desc'),
-      limit(50)
+      limit(500)
     );
 
     const delivUnsub = onSnapshot(
@@ -670,7 +691,7 @@ export default function App() {
     const txQuery = query(
       collection(db, txPath),
       orderBy('timestamp', 'desc'),
-      limit(30)
+      limit(500)
     );
 
     const txUnsub = onSnapshot(
@@ -1134,7 +1155,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-50/70 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white overflow-x-hidden">
+    <div className="min-h-screen w-full bg-slate-50/70 text-slate-900 flex flex-col font-sans selection:bg-sky-500 selection:text-white overflow-x-clip">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-5 right-5 z-50 animate-in fade-in slide-in-from-bottom-4 duration-200">
@@ -1264,7 +1285,7 @@ export default function App() {
                 searchQuery={globalSearchTerm}
                 onSearchChange={setGlobalSearchTerm}
                 onClearSearch={() => setGlobalSearchTerm('')}
-                onRefresh={handleManualRefresh}
+                onRefresh={() => handleManualRefresh(currentBusiness.id)}
                 onDeleteCustomer={handleDeleteCustomer}
                 userRole="WORKER"
                 businessName={currentBusiness.name}
@@ -1278,7 +1299,9 @@ export default function App() {
               <DashboardPage
                 inventory={inventory}
                 customers={customers}
-                todayDeliveries={deliveries}
+                todayDeliveries={deliveries.filter(d => isTimestampOnDate(d.timestamp, formatDateToYYYYMMDD(new Date())))}
+                allDeliveries={deliveries}
+                transactions={transactions}
                 orders={orders}
                 onOpenRestock={handleOpenRestock}
                 onOpenNewDelivery={() => handleOpenDeliveryModal()}
@@ -1290,7 +1313,7 @@ export default function App() {
                 onSearchChange={setGlobalSearchTerm}
                 onClearSearch={() => setGlobalSearchTerm('')}
                 onNavigateToTab={(tab: ActiveTab) => setActiveTab(tab)}
-                onRefresh={handleManualRefresh}
+                onRefresh={() => handleManualRefresh(currentBusiness.id)}
                 userRole="OWNER"
               />
             )}
@@ -1356,7 +1379,7 @@ export default function App() {
                 searchQuery={globalSearchTerm}
                 onSearchChange={setGlobalSearchTerm}
                 onClearSearch={() => setGlobalSearchTerm('')}
-                onRefresh={handleManualRefresh}
+                onRefresh={() => handleManualRefresh(currentBusiness.id)}
                 onDeleteCustomer={handleDeleteCustomer}
                 onOpenCustomerInvoice={handleOpenCustomerInvoice}
                 userRole="OWNER"

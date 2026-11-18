@@ -106,7 +106,7 @@ export function generateWhatsAppReminderText({
 • Scan / View QR Code: ${qrImageUrl}
 ----------------------------------------`;
     } else {
-      upiSection = `\n📲 *UPI ID for Payment:* \`${cleanUpi}\`\n👉 Pay directly via GPay / PhonePe / Paytm / BHIM`;
+      upiSection = `\n📲 *UPI ID for Payment:* \`${cleanUpi}\`\n👉 Pay directly via any UPI App`;
     }
   }
 

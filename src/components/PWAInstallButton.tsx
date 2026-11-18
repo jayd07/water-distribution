@@ -73,7 +73,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                   <Download className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Download AquaPure App</h3>
+                  <h3 className="text-sm font-bold text-slate-900">Download Mobile App</h3>
                   <p className="text-[11px] text-slate-500">Install for offline & quick access</p>
                 </div>
               </div>

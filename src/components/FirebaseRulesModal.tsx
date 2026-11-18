@@ -223,9 +223,9 @@ export const FirebaseRulesModal: React.FC<FirebaseRulesModalProps> = ({
   const activeProjectId = firebaseConfig.projectId || 'silver-champion-8z37z';
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-2xl w-full shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] flex flex-col shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
               <ShieldCheck className="w-4 h-4" />
@@ -243,7 +243,7 @@ export const FirebaseRulesModal: React.FC<FirebaseRulesModalProps> = ({
           </button>
         </div>
 
-        <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto overscroll-contain modal-scroll-body flex-1 min-h-0">
           {/* Auth State Card */}
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -364,25 +364,26 @@ export const FirebaseRulesModal: React.FC<FirebaseRulesModalProps> = ({
             </pre>
           </div>
 
-          <div className="pt-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-slate-100">
-            <button
-              onClick={async () => {
-                await purgeAllAppCaches();
-                window.location.reload();
-              }}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold rounded-xl cursor-pointer transition-colors"
-              title="Purge service worker & browser caches and force reload"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-amber-600" />
-              <span>Purge Cache & Force Reload</span>
-            </button>
-            <button
-              onClick={onClose}
-              className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl cursor-pointer"
-            >
-              Close
-            </button>
-          </div>
+        </div>
+
+        <div className="px-4 py-3 sm:px-5 sm:py-3.5 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 shrink-0">
+          <button
+            onClick={async () => {
+              await purgeAllAppCaches();
+              window.location.reload();
+            }}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold rounded-xl cursor-pointer transition-colors"
+            title="Purge service worker & browser caches and force reload"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-amber-600" />
+            <span>Purge Cache & Force Reload</span>
+          </button>
+          <button
+            onClick={onClose}
+            className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl cursor-pointer"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>

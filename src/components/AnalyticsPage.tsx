@@ -753,7 +753,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
                     height={36} 
                     iconType="circle"
                     formatter={(value) => {
-                      if (value === 'upiSettled') return 'UPI (GPay / Paytm)';
+                      if (value === 'upiSettled') return 'UPI / Online';
                       if (value === 'cashSettled') return 'Cash on Delivery';
                       if (value === 'bankSettled') return 'Bank NEFT/RTGS';
                       return value;
@@ -1066,10 +1066,10 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
       {isGoogleSheetsSyncOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div 
-            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col text-slate-800"
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[85dvh] sm:max-h-[90vh] overflow-hidden flex flex-col text-slate-800"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+            <div className="px-4 py-3 sm:px-5 sm:py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
                   <FileSpreadsheet className="w-4 h-4" />
@@ -1091,57 +1091,59 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSyncToGoogleSheets} className="p-5 space-y-4 text-xs">
-              {sheetsError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <span>{sheetsError}</span>
-                </div>
-              )}
-
-              {sheetsSyncResult && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-emerald-800">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>{sheetsSyncResult.message}</span>
+            <form onSubmit={handleSyncToGoogleSheets} className="flex flex-col flex-1 min-h-0 overflow-hidden text-xs">
+              <div className="p-4 sm:p-5 space-y-4 overflow-y-auto overscroll-contain modal-scroll-body flex-1 min-h-0">
+                {sheetsError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>{sheetsError}</span>
                   </div>
-                  <a
-                    href={sheetsSyncResult.spreadsheetUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 underline"
-                  >
-                    <span>Open Spreadsheet in Google Sheets</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
+                )}
+
+                {sheetsSyncResult && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-emerald-800">
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{sheetsSyncResult.message}</span>
+                    </div>
+                    <a
+                      href={sheetsSyncResult.spreadsheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 underline"
+                    >
+                      <span>Open Spreadsheet in Google Sheets</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block mb-1">
+                    Google Spreadsheet ID or URL
+                  </label>
+                  <input
+                    type="text"
+                    value={sheetIdInput}
+                    onChange={(e) => setSheetIdInput(e.target.value)}
+                    placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms or paste full URL"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                    required
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Paste your Google Sheet's URL or ID. Make sure your account has edit permissions on the sheet.
+                  </p>
                 </div>
-              )}
 
-              <div>
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 block mb-1">
-                  Google Spreadsheet ID or URL
-                </label>
-                <input
-                  type="text"
-                  value={sheetIdInput}
-                  onChange={(e) => setSheetIdInput(e.target.value)}
-                  placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms or paste full URL"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
-                  required
-                />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Paste your Google Sheet's URL or ID. Make sure your account has edit permissions on the sheet.
-                </p>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 space-y-1">
+                  <span className="font-bold text-slate-800 block">What gets exported?</span>
+                  <p>• <strong>{deliveries.length}</strong> Dispatch & Delivery Log entries</p>
+                  <p>• <strong>{transactions.length}</strong> Payment & Due Settlement records</p>
+                  <p>• Full financial columns, timestamps, customer details, and payment modes</p>
+                </div>
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 space-y-1">
-                <span className="font-bold text-slate-800 block">What gets exported?</span>
-                <p>• <strong>{deliveries.length}</strong> Dispatch & Delivery Log entries</p>
-                <p>• <strong>{transactions.length}</strong> Payment & Due Settlement records</p>
-                <p>• Full financial columns, timestamps, customer details, and payment modes</p>
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+              <div className="px-4 py-3 sm:px-5 sm:py-3.5 bg-white flex items-center justify-end gap-2 border-t border-slate-100 shrink-0">
                 <button
                   type="button"
                   onClick={() => {

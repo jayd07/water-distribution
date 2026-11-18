@@ -136,7 +136,7 @@ export async function syncLogsToGoogleSheet(
     'Empties Collected',
     'Payment Mode',
     'Amount Collected (₹)',
-    'Driver / Staff',
+    'Staff',
     'Notes'
   ];
 
@@ -153,7 +153,7 @@ export async function syncLogsToGoogleSheet(
       d.emptyJarsCollected || 0,
       d.paymentMode || 'CASH',
       d.amountCollected || 0,
-      d.workerName || 'Staff Driver',
+      d.workerName || 'Staff',
       d.notes || ''
     ];
   });
@@ -185,7 +185,7 @@ export async function syncLogsToGoogleSheet(
 
   const allRows = [
     ['--- WATER DISTRIBUTION LOGS EXPORT ---'],
-    [`Business: ${business?.name || 'AquaPure Springs'} | Exported: ${new Date().toLocaleString('en-IN')}`],
+    [`Business: ${business?.name || 'Water Supply Management'} | Exported: ${new Date().toLocaleString('en-IN')}`],
     [],
     ['=== DISPATCH & DELIVERIES LOG ==='],
     deliveryHeader,

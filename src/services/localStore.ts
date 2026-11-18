@@ -45,8 +45,8 @@ export const DEFAULT_INITIAL_TRANSACTIONS: TransactionRecord[] = [];
 export const DEFAULT_INITIAL_ORDERS: OrderBooking[] = [];
 
 export function getStorageKey(businessId?: string): string {
-  if (businessId && businessId !== 'AquaPure_Springs') {
-    return `aquapure_data_${businessId}`;
+  if (typeof businessId === 'string' && businessId.trim() !== '' && businessId !== 'AquaPure_Springs') {
+    return `aquapure_data_${businessId.trim()}`;
   }
   return LOCAL_STORAGE_KEY;
 }
@@ -307,23 +307,27 @@ export interface LocalDeliveryInput {
   amountCollected: number;
   paymentMode: 'CASH' | 'UPI' | 'CREDIT';
   itemType?: string;
+  unitPrice?: number;
 }
 
 export function recordDeliveryLocal(input: LocalDeliveryInput, businessId?: string): { deliveryId: string; store: AquaPureDataStore } {
   const store = getLocalStore(businessId);
   const itemType = input.itemType || '20L Normal Water Jar';
-  const deliveryId = `del_${Date.now().toString().slice(-6)}`;
-  const txId = `tx_${Date.now().toString().slice(-6)}`;
+  const randSuffix = Math.random().toString(36).slice(2, 6);
+  const deliveryId = `del_${Date.now().toString().slice(-6)}_${randSuffix}`;
+  const txId = `tx_${Date.now().toString().slice(-6)}_${randSuffix}`;
   const now = Date.now();
 
   // Find customer
   const custIndex = store.customers.findIndex(c => c.id === input.customerId);
-  let unitPrice = 35;
+  let unitPrice = input.unitPrice && input.unitPrice > 0 ? input.unitPrice : 35;
 
   // Find inventory
   const invIndex = store.inventory.findIndex(i => i.itemType === itemType);
   if (invIndex >= 0) {
-    unitPrice = store.inventory[invIndex].unitPrice || 35;
+    if (!input.unitPrice || input.unitPrice <= 0) {
+      unitPrice = store.inventory[invIndex].unitPrice || 35;
+    }
     const curAvail = store.inventory[invIndex].availableStock || 0;
     const curBorrow = store.inventory[invIndex].borrowedStock || 0;
     store.inventory[invIndex].availableStock = Math.max(0, curAvail - input.jarsDelivered + input.emptyJarsCollected);
@@ -360,6 +364,7 @@ export function recordDeliveryLocal(input: LocalDeliveryInput, businessId?: stri
     amountCollected: input.amountCollected,
     paymentMode: input.paymentMode,
     itemType,
+    unitPrice,
     timestamp: now
   };
   store.deliveries.unshift(deliveryRecord);

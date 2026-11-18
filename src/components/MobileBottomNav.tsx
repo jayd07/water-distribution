@@ -64,14 +64,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           onClick={() => setIsMoreOpen(false)}
         >
           <div 
-            className="bg-white rounded-t-3xl p-5 shadow-2xl border-t border-slate-200/90 animate-in slide-in-from-bottom duration-250 max-h-[85vh] overflow-y-auto"
+            className="bg-white rounded-t-3xl p-4 sm:p-5 shadow-2xl border-t border-slate-200/90 animate-in slide-in-from-bottom duration-250 max-h-[82dvh] overflow-y-auto overscroll-contain modal-scroll-body pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Sheet Handle */}
-            <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-4" />
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-3.5" />
 
             {/* Header */}
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-600 to-cyan-500 text-white flex items-center justify-center shadow-xs">
                   <MoreHorizontal className="w-5 h-5" />
@@ -93,12 +93,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             </div>
 
             {/* Quick Mobile PWA Install Banner */}
-            <div className="mt-3.5">
+            <div className="mt-3">
               <PWAInstallButton variant="banner" />
             </div>
 
             {/* Grid of secondary features */}
-            <div className="mt-3.5 grid grid-cols-2 gap-2.5">
+            <div className="mt-3 grid grid-cols-2 gap-2.5">
               <button
                 onClick={() => handleSelectTab('driver_run')}
                 className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${

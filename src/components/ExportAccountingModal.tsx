@@ -276,7 +276,7 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
 
   // --- Handlers: CSV Export ---
   const handleDownloadCsv = () => {
-    const cleanBusinessName = (business?.name || 'AquaPure').replace(/[^a-zA-Z0-9]/g, '_');
+    const cleanBusinessName = (business?.name || 'Water_Supply').replace(/[^a-zA-Z0-9]/g, '_');
     const typeTag = exportType.toLowerCase();
     const filename = `${cleanBusinessName}_${typeTag}_${selectedDate}.csv`;
     downloadCSV(generatedCSV, filename);
@@ -404,15 +404,15 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
   const netJarVariance = summary.totalJarsDelivered - summary.totalEmptiesCollected;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div 
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden text-slate-800"
+        className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 w-full max-w-3xl max-h-[85dvh] sm:max-h-[90vh] flex flex-col overflow-hidden text-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-start justify-between gap-3 bg-slate-50/80">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-xs shrink-0 ${
+        <div className="p-3.5 sm:p-5 border-b border-slate-100 flex items-start justify-between gap-3 bg-slate-50/80 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shadow-xs shrink-0 ${
               activeTab === 'PDF_SUMMARY' 
                 ? 'bg-sky-600 text-white' 
                 : activeTab === 'CSV' 
@@ -420,16 +420,16 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
                 : 'bg-indigo-600 text-white'
             }`}>
               {activeTab === 'PDF_SUMMARY' ? (
-                <FileText className="w-5 h-5" />
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
               ) : activeTab === 'CSV' ? (
-                <FileSpreadsheet className="w-5 h-5" />
+                <FileSpreadsheet className="w-4 h-4 sm:w-5 sm:h-5" />
               ) : (
-                <Cloud className="w-5 h-5" />
+                <Cloud className="w-4 h-4 sm:w-5 sm:h-5" />
               )}
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
                   Delivery Reports & Export Center
                 </h2>
                 {isToday && (
@@ -444,7 +444,7 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 line-clamp-1 sm:line-clamp-none">
                 Generate printable PDF delivery sheets, share summaries to WhatsApp, or export accounting registers
               </p>
             </div>
@@ -452,7 +452,7 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer shrink-0"
             aria-label="Close modal"
           >
             <X className="w-4 h-4" />
@@ -460,7 +460,7 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-4 pt-3 border-b border-slate-100 flex items-center gap-2 bg-slate-50/40 overflow-x-auto">
+        <div className="px-3.5 sm:px-4 pt-2.5 sm:pt-3 border-b border-slate-100 flex items-center gap-2 bg-slate-50/40 overflow-x-auto no-scrollbar shrink-0">
           <button
             type="button"
             id="tab-pdf-summary"
@@ -511,7 +511,7 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+        <div className="p-3.5 sm:p-5 space-y-4 overflow-y-auto overscroll-contain modal-scroll-body flex-1 min-h-0 text-xs">
           
           {/* ============================================================== */}
           {/* TAB 1: DAILY DELIVERY PDF & WHATSAPP SHARING */}
@@ -613,7 +613,7 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
                   </div>
 
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                    <span className="text-[10px] text-slate-500 block font-semibold uppercase">Cash Remitted</span>
+                    <span className="text-[10px] text-slate-500 block font-semibold uppercase">Cash</span>
                     <div className="flex items-baseline gap-1 mt-1">
                       <strong className="text-base font-bold text-slate-900 font-mono">
                         ₹{summary.totalCashCollected.toLocaleString('en-IN')}
@@ -729,7 +729,7 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
                     onClick={() => setShowNotesInput(!showNotesInput)}
                     className="text-[11px] text-sky-700 hover:text-sky-800 font-semibold cursor-pointer underline-offset-2 hover:underline"
                   >
-                    {showNotesInput ? 'Hide Supervisor Note' : '+ Add Dispatch Memo/Note'}
+                    {showNotesInput ? 'Hide Note' : '+ Add Note'}
                   </button>
                 </div>
 
@@ -751,7 +751,7 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
                       onChange={(e) => setIncludeDriverBreakdown(e.target.checked)}
                       className="w-3.5 h-3.5 rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
                     />
-                    <span>Include Driver reconciliation table</span>
+                    <span>Include Staff summary table</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -768,13 +768,13 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
                 {showNotesInput && (
                   <div className="pt-2 border-t border-slate-200">
                     <label className="text-[11px] font-semibold text-slate-700 block mb-1">
-                      Warehouse Supervisor Remarks / Shift Note:
+                      Note:
                     </label>
                     <input
                       type="text"
                       value={supervisorNote}
                       onChange={(e) => setSupervisorNote(e.target.value)}
-                      placeholder="e.g. Route 2 extra 10 jars dispatched for event; morning vehicle returned safely"
+                      placeholder="Add optional note for this report"
                       className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
                   </div>
@@ -809,10 +809,6 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
                       </button>
                     </div>
                   </div>
-
-                  <span className="text-[10px] text-slate-400">
-                    PDF includes A4 printable header, barcodes & signature blocks
-                  </span>
                 </div>
 
                 {previewMode === 'TABLE' ? (
@@ -903,8 +899,8 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
                           </tbody>
                           <tfoot className="bg-slate-100 font-bold text-slate-900 border-t border-slate-200">
                             <tr>
-                              <td colSpan={4} className="py-2 px-2.5 text-right uppercase text-[10px] text-slate-600">
-                                Total ({dayDeliveries.length} drops)
+                              <td colSpan={4} className="py-2 px-2.5 text-right uppercase text-[10px] text-slate-800">
+                                TOTAL
                               </td>
                               <td className="py-2 px-2 text-center text-sky-800 font-mono">
                                 {summary.totalJarsDelivered}
@@ -915,7 +911,7 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
                               {includeFinancials && (
                                 <>
                                   <td className="py-2 px-2.5 text-right font-mono text-slate-900">
-                                    ₹{summary.totalSettledAmount.toLocaleString('en-IN')}
+                                    ₹{dayDeliveries.reduce((acc, d) => acc + (d.paymentMode !== 'CREDIT' ? (Number(d.amountCollected) || 0) : 0), 0).toLocaleString('en-IN')}
                                   </td>
                                   <td colSpan={2}></td>
                                 </>
@@ -1313,16 +1309,7 @@ export const ExportAccountingModal: React.FC<ExportAccountingModalProps> = ({
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50/80 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-3">
-          <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-            <span>
-              {activeTab === 'PDF_SUMMARY' 
-                ? 'Print-Ready A4 Document with Route & Driver Audit Logs' 
-                : 'Ready for Excel, Google Sheets, Tally ERP, and QuickBooks'}
-            </span>
-          </div>
-
+        <div className="p-3.5 sm:p-5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-end gap-2.5 sm:gap-3 shrink-0">
           <div className="flex flex-wrap items-center gap-2 justify-end">
             {activeTab === 'PDF_SUMMARY' ? (
               <>

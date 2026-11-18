@@ -20,6 +20,7 @@ export interface Customer {
   jarsHoldingBySku?: Record<string, number>;
   dueAmount: number;
   depositPaid: number;
+  customJarRate?: number;
   route: string;
   createdAt: number;
 }

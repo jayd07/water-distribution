@@ -72,10 +72,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-md w-full shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full max-h-[85dvh] sm:max-h-[90vh] flex flex-col shadow-xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
               <LogIn className="w-4 h-4" />
@@ -93,7 +93,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </button>
         </div>
 
-        <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+        <div className="p-4 sm:p-5 space-y-4 overflow-y-auto overscroll-contain modal-scroll-body flex-1 min-h-0">
           {/* Current Status if Logged In */}
           {currentUserEmail && (
             <div className="p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
@@ -153,7 +153,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <div>
                     <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                       <span>Business Accounts</span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-200 text-sky-800 font-bold uppercase">GPay Style</span>
                     </h4>
                     <p className="text-[11px] text-slate-500">
                       Login with phone • Choose business • Assign staff
@@ -212,17 +211,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="grow border-t border-slate-200"></div>
           </div>
 
-          {/* Option 2: Staff / Worker Name */}
+          {/* Option 2: Staff Name */}
           <form onSubmit={handleCustomStaffLogin} className="space-y-2.5">
             <label className="block text-xs font-semibold text-slate-700">
-              Driver / Route Operator Name
+              Staff Name
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={customName}
                 onChange={(e) => setCustomName(e.target.value)}
-                placeholder="Enter worker / driver name"
+                placeholder="Enter staff name"
                 className="grow px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
               />
               <button

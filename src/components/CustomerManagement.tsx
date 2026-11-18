@@ -81,6 +81,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
   const { t, isGujarati } = useLanguage();
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [isDeletingCustomer, setIsDeletingCustomer] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [localSearch, setLocalSearch] = useState('');
   const [routeFilter, setRouteFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
@@ -90,7 +91,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
   const [sentReminders, setSentReminders] = useState<Record<string, boolean>>({});
 
   const activeBiz = business || getActiveBusiness();
-  const effectiveBizName = businessName || activeBiz?.name || 'AquaPure Springs Water Distribution';
+  const effectiveBizName = businessName || activeBiz?.name || 'Water Supply Management';
   const effectiveBizPhone = businessPhone || activeBiz?.ownerPhone || '';
   // Strictly genuine configured UPI ID only. No default fallback.
   const effectiveUpiId = (activeBiz?.upiId || '').trim();
@@ -266,11 +267,20 @@ ${effectiveBizPhone ? `For assistance, contact: ${effectiveBizPhone}` : ''}`;
             <Button
               variant="secondary"
               size="md"
-              leftIcon={<RotateCw className="w-3.5 h-3.5" />}
-              onClick={onRefresh}
+              disabled={isRefreshing}
+              leftIcon={<RotateCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />}
+              onClick={async () => {
+                if (isRefreshing) return;
+                setIsRefreshing(true);
+                try {
+                  await onRefresh();
+                } finally {
+                  setIsRefreshing(false);
+                }
+              }}
               title="Refresh customer list"
             >
-              <span>{t.common.refresh}</span>
+              <span>{isRefreshing ? t.common.refreshing : t.common.refresh}</span>
             </Button>
           )}
 

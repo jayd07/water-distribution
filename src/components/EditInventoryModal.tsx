@@ -121,32 +121,34 @@ export const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
+    <div role="dialog" aria-modal="true" className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-2.5 sm:p-4 animate-in fade-in duration-150">
       <div 
-        className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]"
+        className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85dvh] sm:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
+        <div className="px-4 py-3 sm:px-5 sm:py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
               <Boxes className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold tracking-tight">Edit Inventory SKU</h3>
-              <p className="text-[11px] text-slate-400 font-mono">{item.itemType}</p>
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold tracking-tight truncate">Edit Inventory SKU</h3>
+              <p className="text-[11px] text-slate-400 font-mono truncate">{item.itemType}</p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSave} className="p-5 overflow-y-auto space-y-4 text-xs">
+        {/* Form Body & Pinned Footer */}
+        <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 overflow-hidden text-xs">
+          <div className="p-3.5 sm:p-5 overflow-y-auto overscroll-contain modal-scroll-body space-y-3 sm:space-y-4 flex-1 min-h-0">
           {errorMessage && (
             <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -376,8 +378,10 @@ export const EditInventoryModal: React.FC<EditInventoryModalProps> = ({
             </div>
           )}
 
-          {/* Footer Actions */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
+          </div>
+
+          {/* Sticky Pinned Footer Actions */}
+          <div className="px-4 py-3 sm:px-5 sm:py-3.5 bg-white border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
             <button
               type="button"
               onClick={onClose}

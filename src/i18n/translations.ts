@@ -168,7 +168,7 @@ export interface TranslationsDictionary {
 export const translations: Record<Language, TranslationsDictionary> = {
   en: {
     common: {
-      appName: 'AquaPure Springs',
+      appName: 'Water Supply Management',
       save: 'Save',
       cancel: 'Cancel',
       confirm: 'Confirm',
@@ -266,7 +266,7 @@ export const translations: Record<Language, TranslationsDictionary> = {
       oneTapDeliver: '1-Tap Delivery',
       dueBalance: 'Due Balance',
       totalAmountCollected: 'Total Amount Collected (₹)',
-      driverStaffName: 'Driver / Staff Name',
+      driverStaffName: 'Staff Name',
       itemProductType: 'Item / Product Type',
       saveDeliveryStock: 'Save Delivery & Stock',
       saveJarReturn: 'Save Jar Return',
@@ -306,7 +306,7 @@ export const translations: Record<Language, TranslationsDictionary> = {
       recordPayment: 'Record Payment',
       totalSettlement: 'Total Settlement',
       payeeUpiId: 'Payee UPI ID',
-      openInUpiApp: 'Open in UPI App (Deep Link)',
+      openInUpiApp: 'Open in UPI App',
       dueWarning: 'Customer has pending due amount and jars held.'
     },
     pullRefresh: {
@@ -332,7 +332,7 @@ export const translations: Record<Language, TranslationsDictionary> = {
   },
   gu: {
     common: {
-      appName: 'એક્વાપ્યોર સ્પ્રિંગ્સ',
+      appName: 'વોટર સપ્લાય મેનેજમેન્ટ',
       save: 'સાચવો',
       cancel: 'રદ કરો',
       confirm: 'ખાતરી કરો',
@@ -470,7 +470,7 @@ export const translations: Record<Language, TranslationsDictionary> = {
       recordPayment: 'ચુકવણી નોંધો',
       totalSettlement: 'કુલ જમા રકમ',
       payeeUpiId: 'પેમેન્ટ UPI ID',
-      openInUpiApp: 'UPI એપમાં ખોલો (GPay/PhonePe)',
+      openInUpiApp: 'UPI એપમાં ખોલો',
       dueWarning: 'ગ્રાહક પાસે બાકી રકમ અને બોટલો જમા છે.'
     },
     pullRefresh: {

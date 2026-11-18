@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DeliveryLog } from '../types';
+import { DeliveryLog, TransactionRecord } from '../types';
 import { 
   Truck, 
   Search, 
@@ -12,9 +12,9 @@ import {
   ChevronDown,
   Clock,
   User,
-  MapPin,
-  CheckCircle2,
-  Receipt
+  Receipt,
+  IndianRupee,
+  History
 } from 'lucide-react';
 import { CardSpotlight } from './ui/CardSpotlight';
 import { AnimatedTabs, TabItem } from './ui/AnimatedTabs';
@@ -23,6 +23,10 @@ import { triggerHaptic } from '../utils/haptics';
 
 interface DispatchStreamProps {
   todayDeliveries: DeliveryLog[];
+  allDeliveries?: DeliveryLog[];
+  dayTransactions?: TransactionRecord[];
+  isToday?: boolean;
+  selectedDateLabel?: string;
   onOpenNewDelivery: () => void;
   onOpenInvoice?: (delivery: DeliveryLog) => void;
   onOpenExportCSV?: () => void;
@@ -37,6 +41,10 @@ type PaymentFilterMode = 'ALL' | 'CASH' | 'UPI' | 'CREDIT';
 
 export const DispatchStream: React.FC<DispatchStreamProps> = ({ 
   todayDeliveries,
+  allDeliveries,
+  dayTransactions = [],
+  isToday = true,
+  selectedDateLabel = 'Today',
   onOpenNewDelivery,
   onOpenInvoice,
   onOpenExportCSV,
@@ -49,21 +57,27 @@ export const DispatchStream: React.FC<DispatchStreamProps> = ({
   const { isGujarati } = useLanguage();
   const [localSearch, setLocalSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilterMode>('ALL');
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Dropdown expansion state (defaults to false so user can click to drop down and view deliveries)
+  // Dropdown expansion state
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(() => {
     try {
       const saved = sessionStorage.getItem('dispatch_stream_expanded');
       if (saved !== null) return saved === 'true';
     } catch {}
-    return false;
+    return true;
   });
 
   // Track an individually expanded delivery item for micro-detail inspection
   const [expandedDeliveryId, setExpandedDeliveryId] = useState<string | null>(null);
 
   const effectiveSearch = searchQuery !== undefined && searchQuery !== '' ? searchQuery : localSearch;
+
+  // Reset showAllHistory when selectedDateLabel changes
+  useEffect(() => {
+    setShowAllHistory(false);
+  }, [selectedDateLabel]);
 
   // Auto-expand dropdown when an active search query is entered
   useEffect(() => {
@@ -106,18 +120,33 @@ export const DispatchStream: React.FC<DispatchStreamProps> = ({
     onClearSearch?.();
   };
 
+  const activeDeliveriesPool = showAllHistory && allDeliveries ? allDeliveries : todayDeliveries;
+
+  // Standalone due settlements on the selected date
+  const dueSettlements = useMemo(
+    () =>
+      showAllHistory
+        ? []
+        : dayTransactions.filter((tx) => tx.type === 'DUE_CLEARANCE' && (Number(tx.amount) || 0) > 0),
+    [dayTransactions, showAllHistory]
+  );
+
   // Operational aggregates for quick header summary
   const totalJarsDelivered = useMemo(
-    () => todayDeliveries.reduce((sum, d) => sum + (Number(d.jarsDelivered) || 0), 0),
-    [todayDeliveries]
+    () => activeDeliveriesPool.reduce((sum, d) => sum + (Number(d.jarsDelivered) || 0), 0),
+    [activeDeliveriesPool]
   );
 
-  const totalCollected = useMemo(
-    () => todayDeliveries.reduce((sum, d) => sum + (Number(d.amountCollected) || 0), 0),
-    [todayDeliveries]
-  );
+  const totalCollected = useMemo(() => {
+    const deliveryCollected = activeDeliveriesPool.reduce(
+      (sum, d) => sum + (Number(d.amountCollected) || 0),
+      0
+    );
+    const dueCollected = dueSettlements.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
+    return deliveryCollected + dueCollected;
+  }, [activeDeliveriesPool, dueSettlements]);
 
-  const filteredDeliveries = todayDeliveries.filter((d) => {
+  const filteredDeliveries = activeDeliveriesPool.filter((d) => {
     const q = effectiveSearch.toLowerCase().trim();
     const matchesSearch = 
       !q ||
@@ -128,12 +157,31 @@ export const DispatchStream: React.FC<DispatchStreamProps> = ({
     return matchesSearch && matchesPayment;
   });
 
+  const filteredDueSettlements = dueSettlements.filter((tx) => {
+    const q = effectiveSearch.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      (tx.customerName || '').toLowerCase().includes(q) ||
+      (tx.notes || '').toLowerCase().includes(q);
+    const matchesPayment =
+      paymentFilter === 'ALL' ||
+      (paymentFilter === 'CASH' && tx.paymentMode === 'CASH') ||
+      (paymentFilter === 'UPI' && (tx.paymentMode === 'UPI' || tx.paymentMode === 'BANK_TRANSFER'));
+    return matchesSearch && matchesPayment;
+  });
+
   const paymentTabs: TabItem<PaymentFilterMode>[] = [
     { id: 'ALL', label: isGujarati ? 'બધા' : 'All' },
     { id: 'CASH', label: isGujarati ? 'રોકડ' : 'Cash' },
     { id: 'UPI', label: 'UPI' },
     { id: 'CREDIT', label: isGujarati ? 'બાકી' : 'Due' },
   ];
+
+  const streamHeading = showAllHistory
+    ? (isGujarati ? 'તમામ ડિલિવરી ઇતિહાસ' : 'All Recent Deliveries')
+    : isToday
+    ? (isGujarati ? 'આજની ડિલિવરી' : "Today's Deliveries")
+    : (isGujarati ? `${selectedDateLabel} ડિલિવરી` : `Deliveries · ${selectedDateLabel}`);
 
   return (
     <CardSpotlight 
@@ -161,31 +209,36 @@ export const DispatchStream: React.FC<DispatchStreamProps> = ({
             <Truck className="w-4 h-4 stroke-[2.2]" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-bold text-slate-900 tracking-tight">
-                {isGujarati ? "આજની ડિલિવરી" : "Today's Deliveries"}
+                {streamHeading}
               </h3>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono tabular-nums">
-                {isDropdownOpen 
-                  ? `${filteredDeliveries.length} of ${todayDeliveries.length}` 
-                  : `${todayDeliveries.length} ${todayDeliveries.length === 1 ? 'logged' : 'logged'}`}
+              <span className="text-xs font-medium text-slate-500 font-mono tabular-nums">
+                · {isDropdownOpen 
+                  ? `${filteredDeliveries.length} of ${activeDeliveriesPool.length} drops` 
+                  : `${activeDeliveriesPool.length} ${activeDeliveriesPool.length === 1 ? 'drop' : 'drops'}`}
+                {dueSettlements.length > 0 && ` · ${dueSettlements.length} due settled`}
               </span>
             </div>
             
-            {/* Quick Informative Summary Pill */}
+            {/* Quick Informative Summary Line */}
             <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2 font-medium flex-wrap">
-              {todayDeliveries.length > 0 ? (
+              {activeDeliveriesPool.length > 0 || dueSettlements.length > 0 ? (
                 <>
                   <span className="text-slate-600 font-mono tabular-nums">+{totalJarsDelivered} jars</span>
-                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-300">·</span>
                   <span className="font-semibold text-emerald-700 font-mono tabular-nums">₹{totalCollected.toLocaleString('en-IN')} collected</span>
-                  <span className="text-slate-300 hidden sm:inline">•</span>
+                  <span className="text-slate-300 hidden sm:inline">·</span>
                   <span className="text-sky-600 text-[10px] font-semibold hidden sm:inline">
                     {isDropdownOpen ? (isGujarati ? 'છુપાવવા ક્લિક કરો' : 'Click to collapse') : (isGujarati ? 'જોવા માટે ક્લિક કરો' : 'Click to view list')}
                   </span>
                 </>
               ) : (
-                <span>{isGujarati ? 'આજે હજુ કોઈ ડિલિવરી નોંધાઈ નથી' : 'No dispatches recorded today'}</span>
+                <span>
+                  {isToday
+                    ? (isGujarati ? 'આજે હજુ કોઈ ડિલિવરી નોંધાઈ નથી' : 'No dispatches recorded today')
+                    : (isGujarati ? 'આ તારીખે કોઈ ડિલિવરી નોંધાઈ નથી' : `No dispatches recorded on ${selectedDateLabel}`)}
+                </span>
               )}
             </p>
           </div>
@@ -205,7 +258,7 @@ export const DispatchStream: React.FC<DispatchStreamProps> = ({
             }}
             id="dispatch-quick-record-btn"
             title="Record a new delivery drop"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white rounded-lg text-xs font-bold shadow-2xs hover:shadow-xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white rounded-lg text-xs font-bold shadow-2xs hover:shadow-xs hover:scale-105 active:scale-95 transition-all cursor-pointer whitespace-nowrap shrink-0"
           >
             <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>{isGujarati ? 'ડિલિવરી' : 'Record Drop'}</span>
@@ -217,7 +270,7 @@ export const DispatchStream: React.FC<DispatchStreamProps> = ({
             onClick={toggleDropdown}
             id="dispatch-toggle-dropdown-btn"
             aria-expanded={isDropdownOpen}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs hover:scale-105 active:scale-95 ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-xs hover:scale-105 active:scale-95 whitespace-nowrap shrink-0 ${
               isDropdownOpen 
                 ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200/90' 
                 : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200/90'
@@ -279,13 +332,30 @@ export const DispatchStream: React.FC<DispatchStreamProps> = ({
               </div>
 
               <div className="flex items-center gap-2 self-end sm:self-center">
+                {/* Toggle between Selected Date and All History */}
+                {allDeliveries && allDeliveries.length > todayDeliveries.length && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllHistory(prev => !prev)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                      showAllHistory
+                        ? 'bg-sky-600 text-white border-sky-600'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+                    }`}
+                    title={showAllHistory ? 'Switch back to selected date report' : 'Browse all historical delivery records'}
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    <span>{showAllHistory ? (isToday ? 'Today Only' : 'Selected Date') : `All History (${allDeliveries.length})`}</span>
+                  </button>
+                )}
+
                 {/* Export CSV for External Accounting */}
                 {onOpenExportCSV && (
                   <button
                     onClick={onOpenExportCSV}
                     id="dispatch-export-csv-btn"
-                    title="Export today's delivery and transaction log as CSV"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-200/90 rounded-lg transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
+                    title="Export delivery and transaction log as CSV"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-white hover:bg-emerald-50 border border-emerald-200/90 rounded-lg transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-2xs whitespace-nowrap shrink-0"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
                     <span className="hidden sm:inline">Export CSV</span>
@@ -300,7 +370,7 @@ export const DispatchStream: React.FC<DispatchStreamProps> = ({
                     disabled={isRefreshing}
                     id="dispatch-manual-sync-btn"
                     title="Manually sync latest delivery records from Firestore"
-                    className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-sky-700 bg-white hover:bg-sky-50 border border-sky-200/90 rounded-lg transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-2xs disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-sky-700 bg-white hover:bg-sky-50 border border-sky-200/90 rounded-lg transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-2xs disabled:opacity-60 whitespace-nowrap shrink-0"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 text-sky-600 ${isRefreshing ? 'animate-spin' : ''}`} />
                     <span className="hidden sm:inline">{isRefreshing ? 'Syncing...' : 'Sync'}</span>
@@ -309,30 +379,83 @@ export const DispatchStream: React.FC<DispatchStreamProps> = ({
               </div>
             </div>
 
+            {/* Due Settlements Recorded on Selected Date */}
+            {filteredDueSettlements.length > 0 && (
+              <div className="bg-emerald-50/50 border-b border-emerald-100/90 divide-y divide-emerald-100/70">
+                {filteredDueSettlements.map((tx) => {
+                  const txTime = new Date(tx.timestamp).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                  return (
+                    <div
+                      key={tx.id}
+                      className="py-2.5 px-3.5 sm:px-5 flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                          <IndianRupee className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 truncate">
+                            {tx.customerName || 'Customer'} <span className="text-emerald-700 font-normal">· Due Settlement</span>
+                          </p>
+                          <p className="text-[11px] text-slate-500 truncate font-mono tabular-nums">
+                            {txTime} · {tx.notes || 'Outstanding balance recovery'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-xs sm:text-sm font-bold text-emerald-700 block font-mono tabular-nums">
+                          +₹{Number(tx.amount).toLocaleString('en-IN')}
+                        </span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">
+                          {tx.paymentMode === 'BANK_TRANSFER' ? 'BANK' : tx.paymentMode}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Deliveries Stream List */}
             <div className="divide-y divide-slate-100 max-h-[460px] overflow-y-auto">
-              {filteredDeliveries.length === 0 ? (
+              {filteredDeliveries.length === 0 && filteredDueSettlements.length === 0 ? (
                 <div className="py-12 px-4 text-center">
                   <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2.5">
                     <Truck className="w-5 h-5" />
                   </div>
                   <p className="text-xs font-semibold text-slate-700">
-                    {isGujarati ? 'આજે કોઈ ડિલિવરી મળી નથી' : 'No deliveries logged today'}
+                    {isToday
+                      ? (isGujarati ? 'આજે કોઈ ડિલિવરી મળી નથી' : 'No deliveries logged today')
+                      : (isGujarati ? 'આ તારીખે કોઈ ડિલિવરી મળી નથી' : `No deliveries logged on ${selectedDateLabel}`)}
                   </p>
                   <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1">
-                    {todayDeliveries.length === 0
+                    {activeDeliveriesPool.length === 0
                       ? (isGujarati ? "પ્રથમ ડિલિવરી નોંધવા માટે 'Record Drop' પર ક્લિક કરો." : "Click 'Record Drop' above to log your first drop.")
                       : (isGujarati ? 'તમારા ફિલ્ટર સાથે કોઈ મેળ ખાતું નથી.' : 'No delivery logs match your filter.')}
                   </p>
-                  {todayDeliveries.length === 0 && (
-                    <button
-                      onClick={onOpenNewDelivery}
-                      className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
-                    >
-                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" /> 
-                      <span>{isGujarati ? 'પ્રથમ ડિલિવરી નોંધો' : 'Record First Drop'}</span>
-                    </button>
-                  )}
+                  <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
+                    {activeDeliveriesPool.length === 0 && isToday && (
+                      <button
+                        onClick={onOpenNewDelivery}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-2xs"
+                      >
+                        <Plus className="w-3.5 h-3.5 stroke-[2.5]" /> 
+                        <span>{isGujarati ? 'પ્રથમ ડિલિવરી નોંધો' : 'Record First Drop'}</span>
+                      </button>
+                    )}
+                    {allDeliveries && allDeliveries.length > 0 && !showAllHistory && (
+                      <button
+                        onClick={() => setShowAllHistory(true)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                        <span>View Past Deliveries ({allDeliveries.length})</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 filteredDeliveries.map((deliv) => {

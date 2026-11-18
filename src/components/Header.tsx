@@ -882,7 +882,7 @@ export const Header: React.FC<HeaderProps> = ({
               </Button>
 
               {isMoreMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 top-full mt-2 w-64 max-h-[75dvh] overflow-y-auto overscroll-contain modal-scroll-body bg-white rounded-xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95 duration-100">
                   {/* User Profile Header if authenticated */}
                   {(userEmail || userSession) && (
                     <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 mb-1.5">

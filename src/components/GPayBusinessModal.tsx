@@ -636,19 +636,19 @@ export const GPayBusinessModal: React.FC<GPayBusinessModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85dvh] sm:max-h-[90vh]">
         
         {/* Invisible Recaptcha Container */}
         <div id="recaptcha-container-gpay"></div>
 
         {/* GPay Business Themed Header */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-sky-950 text-white px-5 py-4 flex items-center justify-between border-b border-slate-700/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-xs border border-white/20">
-              <Store className="w-5 h-5 text-sky-400" />
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-sky-950 text-white px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between border-b border-slate-700/60 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-xs border border-white/20 shrink-0">
+              <Store className="w-4 h-4 sm:w-5 sm:h-5 text-sky-400" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white leading-snug">
+              <h2 className="text-sm sm:text-base font-bold text-white leading-snug">
                 {step === 'PHONE_LOGIN' && 'Sign in with Mobile or Google'}
                 {step === 'OTP_VERIFY' && 'Verify Phone Number'}
                 {step === 'ACCOUNT_SELECT' && 'Select Business Profile'}
@@ -660,14 +660,14 @@ export const GPayBusinessModal: React.FC<GPayBusinessModalProps> = ({
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Body Container */}
-        <div className="p-5 overflow-y-auto space-y-4 flex-1">
+        <div className="p-3.5 sm:p-5 overflow-y-auto overscroll-contain modal-scroll-body space-y-4 flex-1 min-h-0">
           
           {errorMsg && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-medium space-y-2">
@@ -1319,7 +1319,7 @@ export const GPayBusinessModal: React.FC<GPayBusinessModalProps> = ({
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2.5">
+              <div className="sticky bottom-0 z-10 bg-white pt-3 pb-1 border-t border-slate-100 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setStep('ACCOUNT_SELECT')}
@@ -1556,7 +1556,7 @@ export const GPayBusinessModal: React.FC<GPayBusinessModalProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2.5">
+              <div className="sticky bottom-0 z-10 bg-white pt-3 pb-1 border-t border-slate-100 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setStep('ACCOUNT_SELECT')}
