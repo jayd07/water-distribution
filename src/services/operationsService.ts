@@ -147,12 +147,13 @@ export async function recordTripDelivery(
     emptyJarsCollected: number;
     amountCollected: number;
     paymentMode: 'CASH' | 'UPI' | 'CREDIT';
+    unitPrice?: number;
     itemType?: string;
     workerName?: string;
     notes?: string;
   }
 ): Promise<{ trip: DeliveryTrip; deliveryId: string }> {
-  // 1. Record the official delivery atomically
+  // 1. Record the official delivery atomically with the purchase-date unitPrice
   const deliveryId = await processDeliveryAtomic({
     businessId,
     customerId: deliveryPayload.customerId,
@@ -162,7 +163,8 @@ export async function recordTripDelivery(
     emptyJarsCollected: deliveryPayload.emptyJarsCollected,
     amountCollected: deliveryPayload.amountCollected,
     paymentMode: deliveryPayload.paymentMode,
-    itemType: deliveryPayload.itemType || 'Normal Jar'
+    itemType: deliveryPayload.itemType || '20L Normal Jar',
+    unitPrice: deliveryPayload.unitPrice
   });
 
   // 2. Update trip telemetry and tallies

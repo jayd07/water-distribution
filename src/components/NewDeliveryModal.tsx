@@ -184,12 +184,15 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
     setBulkRouteFilter('ALL');
     setPerCustomerRateOverrides({});
 
+    let initialCust: Customer | undefined;
     if (defaultCustomerId && customers.some(c => c.id === defaultCustomerId)) {
       setSelectedCustomerId(defaultCustomerId);
       setSelectedCustomerIds([defaultCustomerId]);
+      initialCust = customers.find(c => c.id === defaultCustomerId);
     } else if (customers.length > 0) {
       setSelectedCustomerId(customers[0].id);
       setSelectedCustomerIds([]);
+      initialCust = customers[0];
     }
 
     const firstItem = inventory[0];
@@ -200,7 +203,7 @@ export const NewDeliveryModal: React.FC<NewDeliveryModalProps> = ({
       setSelectedItemType('20L Normal Water Jar');
       setCustomUnitPrice(35);
     }
-    setRateMode('PRODUCT');
+    setRateMode(initialCust?.customJarRate && initialCust.customJarRate > 0 ? 'DEFAULT_BIZ' : 'PRODUCT');
 
     const session = getActiveSession();
     const activeBiz = getActiveBusiness();

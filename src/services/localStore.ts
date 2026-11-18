@@ -1,4 +1,5 @@
 import { Customer, InventoryItem, DeliveryLog, TransactionRecord, OrderBooking } from '../types';
+import { calculateCustomerBillingLedger, roundCurrency } from '../utils/billingUtils';
 
 const LOCAL_STORAGE_KEY = 'aquapure_springs_data_v1';
 
@@ -138,6 +139,20 @@ export function getLocalStore(businessId?: string): AquaPureDataStore {
         parsed.inventory = Array.isArray(parsed.inventory)
           ? parsed.inventory.filter((inv: InventoryItem) => !isDummyInventory(inv))
           : [];
+
+        // Reconcile each customer's dueAmount against their recorded deliveries (at purchase-date rates) and payments
+        if (parsed.customers.length > 0 && parsed.deliveries.length > 0) {
+          parsed.customers = parsed.customers.map((c: Customer) => {
+            const ledger = calculateCustomerBillingLedger(c, parsed.deliveries, parsed.transactions);
+            if (ledger.deliveriesChronological.length > 0) {
+              return {
+                ...c,
+                dueAmount: ledger.netOutstandingBalance
+              };
+            }
+            return c;
+          });
+        }
         
         // Ensure default 2 SKUs are present if inventory is empty
         if (parsed.inventory.length === 0) {
@@ -320,14 +335,22 @@ export function recordDeliveryLocal(input: LocalDeliveryInput, businessId?: stri
 
   // Find customer
   const custIndex = store.customers.findIndex(c => c.id === input.customerId);
-  let unitPrice = input.unitPrice && input.unitPrice > 0 ? input.unitPrice : 35;
+  const custCustomRate = custIndex >= 0 ? Number(store.customers[custIndex].customJarRate) || 0 : 0;
 
   // Find inventory
-  const invIndex = store.inventory.findIndex(i => i.itemType === itemType);
+  const invIndex = store.inventory.findIndex(i => i.itemType === itemType || i.displayName === itemType);
+  const invUnitPrice = invIndex >= 0 ? Number(store.inventory[invIndex].unitPrice) || 0 : 0;
+
+  let unitPrice = 35;
+  if (input.unitPrice !== undefined && Number(input.unitPrice) > 0) {
+    unitPrice = roundCurrency(Number(input.unitPrice));
+  } else if (custCustomRate > 0) {
+    unitPrice = roundCurrency(custCustomRate);
+  } else if (invUnitPrice > 0) {
+    unitPrice = roundCurrency(invUnitPrice);
+  }
+
   if (invIndex >= 0) {
-    if (!input.unitPrice || input.unitPrice <= 0) {
-      unitPrice = store.inventory[invIndex].unitPrice || 35;
-    }
     const curAvail = store.inventory[invIndex].availableStock || 0;
     const curBorrow = store.inventory[invIndex].borrowedStock || 0;
     store.inventory[invIndex].availableStock = Math.max(0, curAvail - input.jarsDelivered + input.emptyJarsCollected);
@@ -335,7 +358,38 @@ export function recordDeliveryLocal(input: LocalDeliveryInput, businessId?: stri
     store.inventory[invIndex].lastUpdated = now;
   }
 
-  const orderCost = input.jarsDelivered * unitPrice;
+  const orderCost = roundCurrency(input.jarsDelivered * unitPrice);
+  const effectivePaid = input.paymentMode === 'CREDIT' ? 0 : roundCurrency(Math.max(0, Number(input.amountCollected) || 0));
+
+  // Record delivery with locked purchase-date unitPrice
+  const deliveryRecord: DeliveryLog = {
+    id: deliveryId,
+    customerId: input.customerId,
+    customerName: input.customerName,
+    workerName: input.workerName,
+    jarsDelivered: input.jarsDelivered,
+    emptyJarsCollected: input.emptyJarsCollected,
+    amountCollected: effectivePaid,
+    paymentMode: input.paymentMode,
+    itemType,
+    unitPrice,
+    timestamp: now
+  };
+  store.deliveries.unshift(deliveryRecord);
+
+  // Record transaction if payment collected
+  if (effectivePaid > 0 && input.paymentMode !== 'CREDIT') {
+    const txRecord: TransactionRecord = {
+      id: txId,
+      customerId: input.customerId,
+      customerName: input.customerName,
+      type: 'REFILL_PAYMENT',
+      amount: effectivePaid,
+      paymentMode: input.paymentMode,
+      timestamp: now
+    };
+    store.transactions.unshift(txRecord);
+  }
 
   if (custIndex >= 0) {
     const curJars = store.customers[custIndex].jarsHolding || 0;
@@ -350,37 +404,12 @@ export function recordDeliveryLocal(input: LocalDeliveryInput, businessId?: stri
 
     store.customers[custIndex].jarsHolding = updatedTotalHolding;
     store.customers[custIndex].jarsHoldingBySku = curSkuMap;
-    store.customers[custIndex].dueAmount = Math.max(0, curDue + orderCost - input.amountCollected);
-  }
 
-  // Record delivery
-  const deliveryRecord: DeliveryLog = {
-    id: deliveryId,
-    customerId: input.customerId,
-    customerName: input.customerName,
-    workerName: input.workerName,
-    jarsDelivered: input.jarsDelivered,
-    emptyJarsCollected: input.emptyJarsCollected,
-    amountCollected: input.amountCollected,
-    paymentMode: input.paymentMode,
-    itemType,
-    unitPrice,
-    timestamp: now
-  };
-  store.deliveries.unshift(deliveryRecord);
-
-  // Record transaction if payment collected
-  if (input.amountCollected > 0 && input.paymentMode !== 'CREDIT') {
-    const txRecord: TransactionRecord = {
-      id: txId,
-      customerId: input.customerId,
-      customerName: input.customerName,
-      type: 'REFILL_PAYMENT',
-      amount: input.amountCollected,
-      paymentMode: input.paymentMode,
-      timestamp: now
-    };
-    store.transactions.unshift(txRecord);
+    const ledger = calculateCustomerBillingLedger(store.customers[custIndex], store.deliveries, store.transactions);
+    store.customers[custIndex].dueAmount =
+      ledger.deliveriesChronological.length > 0
+        ? ledger.netOutstandingBalance
+        : roundCurrency(Math.max(0, curDue + orderCost - effectivePaid));
   }
 
   saveLocalStore(store, businessId);

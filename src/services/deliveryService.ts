@@ -85,10 +85,14 @@ export async function processDeliveryAtomic(input: DeliveryRecordInput): Promise
         ? invSnap.data() 
         : { availableStock: 120, borrowedStock: 380, unitPrice: 35.0, displayName: itemType };
 
+      const custCustomRate = custData ? Number(custData.customJarRate) || 0 : 0;
       const unitPrice = input.unitPrice && input.unitPrice > 0
         ? Number(input.unitPrice)
+        : custCustomRate > 0
+        ? custCustomRate
         : (Number(invData.unitPrice) || 35.0);
-      const orderCost = input.jarsDelivered * unitPrice;
+      const orderCost = Math.round((input.jarsDelivered * unitPrice + Number.EPSILON) * 100) / 100;
+      const effectivePaid = input.paymentMode === 'CREDIT' ? 0 : Math.max(0, Number(input.amountCollected) || 0);
 
       if (custData) {
         const currentJarsHolding = Number(custData.jarsHolding) || 0;
@@ -100,7 +104,7 @@ export async function processDeliveryAtomic(input: DeliveryRecordInput): Promise
 
         const totalSkuSum = Object.values(curSkuMap).reduce((sum: number, val: any) => sum + (Number(val) || 0), 0);
         const newJarsHolding = totalSkuSum > 0 ? totalSkuSum : Math.max(0, currentJarsHolding + input.jarsDelivered - input.emptyJarsCollected);
-        const newDueAmount = Math.max(0, currentDue + orderCost - input.amountCollected);
+        const newDueAmount = Math.round((Math.max(0, currentDue + orderCost - effectivePaid) + Number.EPSILON) * 100) / 100;
 
         txn.update(customerRef, {
           jarsHolding: newJarsHolding,
@@ -140,20 +144,20 @@ export async function processDeliveryAtomic(input: DeliveryRecordInput): Promise
         workerName: input.workerName || 'Staff Driver',
         jarsDelivered: input.jarsDelivered,
         emptyJarsCollected: input.emptyJarsCollected,
-        amountCollected: input.amountCollected,
+        amountCollected: effectivePaid,
         paymentMode: input.paymentMode,
         itemType,
         unitPrice,
         timestamp
       });
 
-      if (input.amountCollected > 0 && input.paymentMode !== 'CREDIT') {
+      if (effectivePaid > 0 && input.paymentMode !== 'CREDIT') {
         txn.set(transactionRef, {
           id: txId,
           customerId: input.customerId,
           customerName: input.customerName,
           type: 'REFILL_PAYMENT',
-          amount: input.amountCollected,
+          amount: effectivePaid,
           paymentMode: input.paymentMode,
           timestamp
         });

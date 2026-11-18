@@ -15,15 +15,31 @@ import {
 import { getFirestore, initializeFirestore, setLogLevel } from 'firebase/firestore';
 import firebaseAppletConfig from '../../firebase-applet-config.json';
 
-// Configure Firestore SDK log level to suppress routine connection polling notices
-setLogLevel('error');
+// Configure Firestore SDK log level to silent to prevent internal WebChannel retry notices from surfacing as fatal errors
+setLogLevel('silent');
 
-// Production Log Filter - Silences unnecessary console output in production
-if (typeof window !== 'undefined' && (import.meta.env.PROD || process.env.NODE_ENV === 'production')) {
-  const noop = () => {};
-  console.log = noop;
-  console.debug = noop;
-  console.info = noop;
+// Filter transient Firestore network retry messages from triggering error overlays while preserving real errors
+if (typeof window !== 'undefined') {
+  const originalConsoleError = console.error.bind(console);
+  console.error = (...args: unknown[]) => {
+    const firstArg = typeof args[0] === 'string' ? args[0] : '';
+    if (
+      firstArg.includes('@firebase/firestore') &&
+      (firstArg.includes('Could not reach Cloud Firestore backend') ||
+        firstArg.includes('code=unavailable') ||
+        firstArg.includes('client is offline'))
+    ) {
+      return;
+    }
+    originalConsoleError(...args);
+  };
+
+  if (import.meta.env.PROD || process.env.NODE_ENV === 'production') {
+    const noop = () => {};
+    console.log = noop;
+    console.debug = noop;
+    console.info = noop;
+  }
 }
 
 export const firebaseConfig = {
@@ -48,7 +64,7 @@ const databaseId = (firebaseAppletConfig as { firestoreDatabaseId?: string }).fi
 let firestoreInstance;
 try {
   const firestoreSettings = {
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true,
     ignoreUndefinedProperties: true
   };
   if (databaseId && databaseId !== '(default)') {
@@ -288,8 +304,16 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const errMsg = error instanceof Error ? error.message : String(error);
+  const errCode = (error as { code?: string })?.code || '';
+  const isTransientOffline =
+    errCode === 'unavailable' ||
+    errMsg.includes('code=unavailable') ||
+    errMsg.includes('Could not reach Cloud Firestore backend') ||
+    errMsg.includes('client is offline');
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMsg,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -304,6 +328,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  if (!isTransientOffline) {
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+  }
   throw new Error(JSON.stringify(errInfo));
 }

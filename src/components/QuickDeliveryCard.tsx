@@ -33,6 +33,8 @@ interface QuickDeliveryCardProps {
     emptyJarsCollected: number;
     amountCollected: number;
     paymentMode: 'CASH' | 'UPI' | 'CREDIT';
+    unitPrice?: number;
+    itemType?: string;
     notes?: string;
   }) => Promise<void>;
   onOpenDetailedModal?: (customer: Customer) => void;
@@ -71,6 +73,8 @@ export const QuickDeliveryCard: React.FC<QuickDeliveryCardProps> = ({
         emptyJarsCollected: emptyQty,
         amountCollected: paymentMode === 'CREDIT' ? 0 : estimatedAmount,
         paymentMode: paymentMode,
+        unitPrice: unitRate,
+        itemType: schedule?.itemType || '20L Normal Jar',
         notes: schedule ? `Scheduled (${schedule.frequency}) run stop` : 'Route delivery'
       });
       triggerHaptic('delivery');

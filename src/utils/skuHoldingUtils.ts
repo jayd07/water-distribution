@@ -1,4 +1,5 @@
 import { Customer, DeliveryLog, InventoryItem } from '../types';
+import { resolveDeliveryPurchaseRate, isDeliveryForCustomer } from './billingUtils';
 
 export interface SkuHoldingItem {
   itemType: string;
@@ -11,7 +12,7 @@ export interface SkuHoldingItem {
 /**
  * Resolves the SKU-wise breakdown of jars held by a customer.
  * Uses customer.jarsHoldingBySku if populated, or accurately reconstructs it
- * from the customer's delivery history across all SKUs.
+ * from the customer's delivery history across all SKUs, preserving purchase-date rates.
  */
 export function getCustomerSkuHoldings(
   customer?: Customer | null,
@@ -24,6 +25,21 @@ export function getCustomerSkuHoldings(
   const defaultSku = inventoryList[0]?.itemType || '20L Normal Jar';
 
   const skuMap: Record<string, number> = {};
+  const skuPurchaseRateMap: Record<string, number> = {};
+
+  // Track historical purchase rates per SKU from the customer's delivery logs
+  if (deliveries && deliveries.length > 0) {
+    const custDeliveries = deliveries.filter(d => isDeliveryForCustomer(d, customer));
+    if (custDeliveries.length > 0) {
+      const sorted = [...custDeliveries].sort((a, b) => a.timestamp - b.timestamp);
+      for (const d of sorted) {
+        const itemType = d.itemType || defaultSku;
+        if ((Number(d.jarsDelivered) || 0) > 0) {
+          skuPurchaseRateMap[itemType] = resolveDeliveryPurchaseRate(d);
+        }
+      }
+    }
+  }
 
   // Case 1: If customer has explicit jarsHoldingBySku mapping
   if (customer.jarsHoldingBySku && Object.keys(customer.jarsHoldingBySku).length > 0) {
@@ -35,9 +51,8 @@ export function getCustomerSkuHoldings(
   } 
   // Case 2: Reconstruct from customer's historical deliveries
   else if (deliveries && deliveries.length > 0) {
-    const custDeliveries = deliveries.filter(d => d.customerId === customer.id);
+    const custDeliveries = deliveries.filter(d => isDeliveryForCustomer(d, customer));
     if (custDeliveries.length > 0) {
-      // Sort oldest to newest
       const sorted = [...custDeliveries].sort((a, b) => a.timestamp - b.timestamp);
       for (const d of sorted) {
         const itemType = d.itemType || defaultSku;
@@ -59,17 +74,21 @@ export function getCustomerSkuHoldings(
     skuMap[defaultSku] = (skuMap[defaultSku] || 0) + remainder;
   }
 
-  // Convert to formatted list with pricing & metadata
+  // Convert to formatted list with purchase-date pricing & metadata
   const results: SkuHoldingItem[] = [];
 
   for (const [itemType, count] of Object.entries(skuMap)) {
     if (count > 0) {
       const matchedInv = inventoryList.find(i => i.itemType === itemType || i.displayName === itemType);
+      const historicalPurchaseRate = skuPurchaseRateMap[itemType];
       results.push({
         itemType,
         displayName: matchedInv?.displayName || itemType,
         count,
-        unitPrice: Number(matchedInv?.unitPrice) || 35,
+        unitPrice:
+          historicalPurchaseRate && historicalPurchaseRate > 0
+            ? historicalPurchaseRate
+            : Number(matchedInv?.unitPrice) || 35,
         depositAmount: Number(matchedInv?.depositAmount) || 150
       });
     }
@@ -78,11 +97,15 @@ export function getCustomerSkuHoldings(
   // If customer holds jars but no specific SKU was found, fallback cleanly
   if (results.length === 0 && totalReportedHolding > 0) {
     const matchedInv = inventoryList[0];
+    const historicalPurchaseRate = skuPurchaseRateMap[defaultSku];
     results.push({
       itemType: defaultSku,
       displayName: matchedInv?.displayName || defaultSku,
       count: totalReportedHolding,
-      unitPrice: Number(matchedInv?.unitPrice) || 35,
+      unitPrice:
+        historicalPurchaseRate && historicalPurchaseRate > 0
+          ? historicalPurchaseRate
+          : Number(matchedInv?.unitPrice) || 35,
       depositAmount: Number(matchedInv?.depositAmount) || 150
     });
   }

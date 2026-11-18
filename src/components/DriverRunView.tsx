@@ -45,6 +45,8 @@ interface DriverRunViewProps {
     emptyJarsCollected: number;
     amountCollected: number;
     paymentMode: 'CASH' | 'UPI' | 'CREDIT';
+    unitPrice?: number;
+    itemType?: string;
     notes?: string;
   }) => Promise<void>;
   onOpenSchedulesModal: () => void;

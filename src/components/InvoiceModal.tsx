@@ -2,9 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Printer, Share2, X, Edit2, Building2, QrCode, Check, Download, MessageSquare } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { DeliveryLog, Customer, OrderBooking, BusinessAccount, InventoryItem } from '../types';
+import { DeliveryLog, Customer, OrderBooking, BusinessAccount, InventoryItem, TransactionRecord } from '../types';
 import { getActiveBusiness, updateBusiness } from '../services/businessService';
 import { getCustomerSkuHoldings, formatSkuHoldingsForWhatsApp, SkuHoldingItem } from '../utils/skuHoldingUtils';
+import {
+  calculateCustomerBillingLedger,
+  resolveDeliveryPurchaseRate,
+  calculateDeliveryBillAmount,
+  getDeliveryPaidAmount,
+  roundCurrency
+} from '../utils/billingUtils';
 import {
   generateUpiUri,
   resolveBusinessUpiId,
@@ -24,6 +31,7 @@ export interface InvoiceModalProps {
   onUpdateBusiness?: (business: BusinessAccount) => void;
   inventory?: InventoryItem[];
   deliveries?: DeliveryLog[];
+  transactions?: TransactionRecord[];
   customers?: Customer[];
 }
 
@@ -37,6 +45,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   onUpdateBusiness,
   inventory = [],
   deliveries = [],
+  transactions = [],
   customers = []
 }) => {
   const fallbackBiz = getActiveBusiness();
@@ -60,9 +69,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [whatsAppStatusMsg, setWhatsAppStatusMsg] = useState<string>('');
 
-  // Print options: Paper size ('A4' | 'POS') and Financial Summary Mode ('FULL_LEDGER' | 'CURRENT_ONLY')
+  // Print options: Paper size ('A4' | 'POS'), Financial Summary Mode ('FULL_LEDGER' | 'CURRENT_ONLY'),
+  // and Configurable Clubbing of same particulars & rate (default ON for concise bills)
   const [printFormat, setPrintFormat] = useState<'A4' | 'POS'>('A4');
   const [summaryMode, setSummaryMode] = useState<'FULL_LEDGER' | 'CURRENT_ONLY'>('FULL_LEDGER');
+  const [clubSameEntries, setClubSameEntries] = useState<boolean>(true);
   const [isPrinting, setIsPrinting] = useState(false);
   const [printDone, setPrintDone] = useState(false);
   const [copiedBillText, setCopiedBillText] = useState(false);
@@ -162,41 +173,58 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     ? Number(order!.depositAmount) || 0
     : Number(targetCustomer?.depositPaid) || 0;
 
+  // Authoritative chronological customer ledger computed strictly at purchase-date rates
+  const customerLedger = calculateCustomerBillingLedger(targetCustomer, deliveries, transactions);
+  const deliverySnapshot = delivery?.id ? customerLedger.snapshotsById.get(delivery.id) : undefined;
+
+  // CRITICAL: Always use the purchase-date rate recorded on the delivery, never the current rate
   const deliveryUnitRate = delivery
-    ? Number(delivery.unitPrice) ||
-      (delivery.amountCollected && delivery.jarsDelivered
-        ? Math.round(delivery.amountCollected / delivery.jarsDelivered)
-        : targetCustomer?.customJarRate || 35)
+    ? deliverySnapshot
+      ? deliverySnapshot.purchaseRate
+      : resolveDeliveryPurchaseRate(delivery)
     : 35;
 
   const deliveryGrossAmount = delivery
-    ? delivery.jarsDelivered > 0
-      ? delivery.jarsDelivered * deliveryUnitRate
-      : Number(delivery.amountCollected) || 0
+    ? deliverySnapshot
+      ? deliverySnapshot.billAmount
+      : delivery.jarsDelivered > 0
+      ? calculateDeliveryBillAmount(delivery)
+      : getDeliveryPaidAmount(delivery)
     : 0;
 
-  const deliveryPaidAmount = delivery ? Number(delivery.amountCollected) || 0 : 0;
+  const deliveryPaidAmount = delivery
+    ? deliverySnapshot
+      ? deliverySnapshot.paidAmount
+      : getDeliveryPaidAmount(delivery)
+    : 0;
+
   const deliveryBalanceDue = delivery
-    ? delivery.paymentMode === 'CREDIT'
-      ? Math.max(0, deliveryGrossAmount - deliveryPaidAmount)
-      : 0
+    ? deliverySnapshot
+      ? deliverySnapshot.unpaidAmount
+      : roundCurrency(Math.max(0, deliveryGrossAmount - deliveryPaidAmount))
     : 0;
 
-  // Authoritative Customer Outstanding Balance from customer record
-  const customerTotalOutstanding = Number(targetCustomer?.dueAmount) || 0;
+  // Authoritative Customer Outstanding Balance from chronological purchase-date ledger
+  const customerTotalOutstanding = targetCustomer
+    ? customerLedger.netOutstandingBalance
+    : roundCurrency(Math.max(0, Number((customer as Customer | null)?.dueAmount) || 0));
 
-  // Previous outstanding balance prior to this delivery (if targetCustomer is available)
+  // Previous outstanding balance immediately prior to this delivery
   const previousOutstandingBalance = delivery
-    ? targetCustomer
+    ? deliverySnapshot
+      ? deliverySnapshot.balanceBefore
+      : targetCustomer
       ? delivery.jarsDelivered === 0 && deliveryPaidAmount > 0
-        ? customerTotalOutstanding + deliveryPaidAmount
-        : Math.max(0, customerTotalOutstanding - deliveryBalanceDue)
+        ? roundCurrency(customerTotalOutstanding + deliveryPaidAmount)
+        : roundCurrency(Math.max(0, customerTotalOutstanding - deliveryBalanceDue))
       : 0
     : customerTotalOutstanding;
 
   const totalOutstandingAfterDelivery = delivery
-    ? targetCustomer
-      ? customerTotalOutstanding
+    ? deliverySnapshot
+      ? deliverySnapshot.balanceAfter
+      : targetCustomer
+      ? roundCurrency(Math.max(0, previousOutstandingBalance + deliveryGrossAmount - deliveryPaidAmount))
       : deliveryBalanceDue
     : isOrder
     ? order!.paymentStatus === 'PAID'
@@ -223,7 +251,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     ? customerTotalOutstanding
     : summaryMode === 'FULL_LEDGER' && totalOutstandingAfterDelivery > 0
     ? totalOutstandingAfterDelivery
-    : delivery && delivery.paymentMode === 'CREDIT'
+    : deliveryBalanceDue > 0
     ? deliveryBalanceDue
     : deliveryGrossAmount > 0
     ? deliveryGrossAmount
@@ -296,6 +324,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     : 'ACCOUNT STATEMENT';
 
   // Authoritative Database-Driven WATER DELIVERY DETAILS Rows (Never renames or modifies database descriptions)
+  const billableDeliveries = customerLedger.deliveriesChronological.filter(
+    (snap) => snap.jarsDelivered > 0 || snap.emptyJarsCollected > 0
+  );
+
+  // Whether the table displays the full customer delivery history (Account Statement or Full Balance mode)
+  const showFullLedgerDeliveries =
+    !isOrder &&
+    (isCustomerAccount || (Boolean(delivery) && summaryMode === 'FULL_LEDGER' && billableDeliveries.length > 0));
+
   const itemizedRows: Array<{
     sno: string;
     particulars: string;
@@ -320,7 +357,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     if (order!.depositAmount > 0) {
       itemizedRows.push({
         sno: '02',
-        particulars: 'Security Deposit Held',
+        particulars: 'Security Deposit',
         quantity: '-',
         rate: '-',
         amount: `₹${order!.depositAmount.toLocaleString('en-IN')}.00`,
@@ -328,8 +365,109 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         pdfAmount: `Rs. ${order!.depositAmount.toLocaleString('en-IN')}.00`
       });
     }
-  } else if (isCustomerAccount) {
-    if (skuHoldings.length > 0) {
+  } else if (showFullLedgerDeliveries) {
+    if (billableDeliveries.length > 0) {
+      if (clubSameEntries) {
+        // Club entries that have the exact same particulars (itemType) and purchase-date rate
+        const clubbedMap = new Map<
+          string,
+          {
+            particulars: string;
+            isEmptyReturnOnly: boolean;
+            totalQuantity: number;
+            purchaseRate: number;
+            totalAmount: number;
+            entryCount: number;
+          }
+        >();
+
+        billableDeliveries.forEach((snap) => {
+          const d = snap.delivery;
+          const rawItemLabel = (d.itemType || '20L Water Jar').trim();
+
+          if (snap.jarsDelivered > 0) {
+            const key = `DELIV__${rawItemLabel.toLowerCase()}__RATE_${snap.purchaseRate.toFixed(2)}`;
+            const existing = clubbedMap.get(key);
+            if (existing) {
+              existing.totalQuantity += snap.jarsDelivered;
+              existing.totalAmount = roundCurrency(existing.totalAmount + snap.billAmount);
+              existing.entryCount += 1;
+            } else {
+              clubbedMap.set(key, {
+                particulars: rawItemLabel,
+                isEmptyReturnOnly: false,
+                totalQuantity: snap.jarsDelivered,
+                purchaseRate: snap.purchaseRate,
+                totalAmount: snap.billAmount,
+                entryCount: 1
+              });
+            }
+          } else if (snap.emptyJarsCollected > 0) {
+            const returnParticulars = `${rawItemLabel} (Empty Returned)`;
+            const key = `RETURN__${rawItemLabel.toLowerCase()}__RATE_0`;
+            const existing = clubbedMap.get(key);
+            if (existing) {
+              existing.totalQuantity += snap.emptyJarsCollected;
+              existing.entryCount += 1;
+            } else {
+              clubbedMap.set(key, {
+                particulars: returnParticulars,
+                isEmptyReturnOnly: true,
+                totalQuantity: snap.emptyJarsCollected,
+                purchaseRate: 0,
+                totalAmount: 0,
+                entryCount: 1
+              });
+            }
+          }
+        });
+
+        let clubIndex = 1;
+        clubbedMap.forEach((group) => {
+          const qtyLabel = group.isEmptyReturnOnly
+            ? `${group.totalQuantity} Returned`
+            : `${group.totalQuantity} ${group.totalQuantity === 1 ? 'Jar' : 'Jars'}`;
+          const rateLabel = group.isEmptyReturnOnly ? '-' : `₹${group.purchaseRate.toFixed(2)}`;
+          const pdfRateLabel = group.isEmptyReturnOnly ? '-' : `Rs. ${group.purchaseRate.toFixed(2)}`;
+
+          itemizedRows.push({
+            sno: String(clubIndex++).padStart(2, '0'),
+            particulars: group.particulars,
+            quantity: qtyLabel,
+            rate: rateLabel,
+            amount: `₹${group.totalAmount.toLocaleString('en-IN')}.00`,
+            pdfRate: pdfRateLabel,
+            pdfAmount: `Rs. ${group.totalAmount.toLocaleString('en-IN')}.00`
+          });
+        });
+      } else {
+        // Show every entry separately in chronological purchase order
+        billableDeliveries.forEach((snap, idx) => {
+          const d = snap.delivery;
+          const itemLabel = (d.itemType || '20L Water Jar').trim();
+          const particularsLabel =
+            snap.jarsDelivered > 0
+              ? `${itemLabel} (${snap.purchaseDateFormatted})`
+              : `${itemLabel} - Empty Returned (${snap.purchaseDateFormatted})`;
+          const qtyLabel =
+            snap.jarsDelivered > 0
+              ? `${snap.jarsDelivered} ${snap.jarsDelivered === 1 ? 'Jar' : 'Jars'}`
+              : `${snap.emptyJarsCollected} Returned`;
+          const rateLabel = snap.jarsDelivered > 0 ? `₹${snap.purchaseRate.toFixed(2)}` : '-';
+          const pdfRateLabel = snap.jarsDelivered > 0 ? `Rs. ${snap.purchaseRate.toFixed(2)}` : '-';
+
+          itemizedRows.push({
+            sno: String(idx + 1).padStart(2, '0'),
+            particulars: particularsLabel,
+            quantity: qtyLabel,
+            rate: rateLabel,
+            amount: `₹${snap.billAmount.toLocaleString('en-IN')}.00`,
+            pdfRate: pdfRateLabel,
+            pdfAmount: `Rs. ${snap.billAmount.toLocaleString('en-IN')}.00`
+          });
+        });
+      }
+    } else if (skuHoldings.length > 0) {
       skuHoldings.forEach((sku, idx) => {
         itemizedRows.push({
           sno: String(idx + 1).padStart(2, '0'),
@@ -347,9 +485,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         particulars: 'Water Jars Held',
         quantity: `${totalHoldingCount} Jars`,
         rate: '-',
-        amount: `${totalHoldingCount} Jars`,
+        amount: `₹${customerTotalOutstanding.toLocaleString('en-IN')}.00`,
         pdfRate: '-',
-        pdfAmount: `${totalHoldingCount} Jars`
+        pdfAmount: `Rs. ${customerTotalOutstanding.toLocaleString('en-IN')}.00`
       });
     }
   } else {
@@ -403,7 +541,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         value: `${curr}${itemSubtotal.toLocaleString('en-IN')}.00`
       });
       rows.push({
-        label: 'Security Deposit Held',
+        label: 'Security Deposit',
         value: `${curr}${order!.depositAmount.toLocaleString('en-IN')}.00`
       });
       rows.push({
@@ -411,13 +549,23 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         value: `${curr}${order!.totalAmount.toLocaleString('en-IN')}.00`,
         isProminent: true
       });
-    } else if (isCustomerAccount) {
+    } else if (showFullLedgerDeliveries) {
+      if (customerLedger.openingBalance > 0) {
+        rows.push({
+          label: 'Previous Outstanding Balance',
+          value: `${curr}${customerLedger.openingBalance.toLocaleString('en-IN')}.00`
+        });
+      }
       rows.push({
-        label: 'Jars Currently With Customer',
-        value: `${totalHoldingCount} Jars`
+        label: 'Current Transaction Amount',
+        value: `${curr}${customerLedger.totalBilledAtPurchaseRates.toLocaleString('en-IN')}.00`
       });
       rows.push({
-        label: 'Security Deposit Held',
+        label: 'Payments Received',
+        value: `${curr}${customerLedger.totalPaymentsReceived.toLocaleString('en-IN')}.00`
+      });
+      rows.push({
+        label: 'Security Deposit',
         value: `${curr}${securityDepositHeld.toLocaleString('en-IN')}.00`
       });
       rows.push({
@@ -440,7 +588,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           value: `${curr}${deliveryPaidAmount.toLocaleString('en-IN')}.00`
         });
         rows.push({
-          label: 'Security Deposit Held',
+          label: 'Security Deposit',
           value: `${curr}${securityDepositHeld.toLocaleString('en-IN')}.00`
         });
         rows.push({
@@ -456,6 +604,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         rows.push({
           label: 'Payments Received',
           value: `${curr}${deliveryPaidAmount.toLocaleString('en-IN')}.00`
+        });
+        rows.push({
+          label: 'Security Deposit',
+          value: `${curr}${securityDepositHeld.toLocaleString('en-IN')}.00`
         });
         rows.push({
           label: 'TOTAL OUTSTANDING AMOUNT',
@@ -576,18 +728,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         y += 3.6;
       }
 
-      // ACCOUNT & DEPOSIT DETAILS on POS
+      // ACCOUNT DETAILS on POS (single place for Jars Currently With Customer)
       y += 1;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
       doc.setTextColor(3, 105, 161);
-      doc.text('ACCOUNT & DEPOSIT DETAILS', margin, y);
+      doc.text('ACCOUNT DETAILS', margin, y);
       y += 3.8;
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(51, 65, 85);
       doc.text(`Jars Currently With Customer: ${totalHoldingCount} Jars`, margin, y);
-      y += 3.6;
-      doc.text(`Security Deposit Held: Rs. ${securityDepositHeld.toLocaleString('en-IN')}.00`, margin, y);
       y += 4.5;
     } else {
       // Right-aligned Document Title & Date on A4
@@ -610,8 +760,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       doc.line(margin, y, pageWidth - margin, y);
       y += 5;
 
-      // 2-Column CUSTOMER DETAILS & ACCOUNT & DEPOSIT DETAILS Box
-      const gridHeight = 24;
+      // 2-Column CUSTOMER DETAILS & ACCOUNT DETAILS Box
+      const gridHeight = 22;
       doc.setFillColor(248, 250, 252);
       doc.setDrawColor(203, 213, 225);
       doc.setLineWidth(0.3);
@@ -628,7 +778,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       doc.setFontSize(8);
       doc.setTextColor(3, 105, 161);
       doc.text('CUSTOMER DETAILS', margin + 3.5, y + 4.4);
-      doc.text('ACCOUNT & DEPOSIT DETAILS', margin + contentWidth / 2 + 3.5, y + 4.4);
+      doc.text('ACCOUNT DETAILS', margin + contentWidth / 2 + 3.5, y + 4.4);
 
       // Left Column: Customer Details
       doc.setFont('helvetica', 'bold');
@@ -649,21 +799,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         doc.text(`Address: ${customerAddress.substring(0, 54)}`, margin + 3.5, leftTextY);
       }
 
-      // Right Column: Account & Deposit Details
+      // Right Column: Account Details (Jars Currently With Customer at one place only)
       const rightX = margin + contentWidth / 2 + 3.5;
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.2);
       doc.setTextColor(51, 65, 85);
       doc.text(`Jars Currently With Customer: ${totalHoldingCount} Jars`, rightX, y + 11.5);
-      doc.text(
-        `Security Deposit Held: Rs. ${securityDepositHeld.toLocaleString('en-IN')}.00`,
-        rightX,
-        y + 16
-      );
       if (delivery && delivery.workerName) {
-        doc.text(`Delivered By: ${delivery.workerName}`, rightX, y + 20.2);
+        doc.text(`Delivered By: ${delivery.workerName}`, rightX, y + 16);
       } else if (order && order.deliveryDate) {
-        doc.text(`Scheduled Date: ${order.deliveryDate}`, rightX, y + 20.2);
+        doc.text(`Scheduled Date: ${order.deliveryDate}`, rightX, y + 16);
       }
 
       y += gridHeight + 7;
@@ -809,7 +954,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       doc.roundedRect(margin, summaryY, contentWidth, boxHeight, 1.5, 1.5, 'S');
       doc.line(rightX, summaryY, rightX, summaryY + boxHeight);
 
-      // Left Box: AMOUNT IN WORDS & Holdings Summary
+      // Left Box: AMOUNT IN WORDS only (no redundant jar or deposit lines)
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.8);
       doc.setTextColor(3, 105, 161);
@@ -821,20 +966,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       doc.text(numberToIndianWords(primaryInvoiceAmount), margin + 3.5, summaryY + 11.5, {
         maxWidth: leftWidth - 7
       });
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(71, 85, 105);
-      doc.text(
-        `Jars Currently With Customer: ${totalHoldingCount} Jars`,
-        margin + 3.5,
-        summaryY + 19
-      );
-      doc.text(
-        `Security Deposit Held: Rs. ${securityDepositHeld.toLocaleString('en-IN')}.00`,
-        margin + 3.5,
-        summaryY + 23.8
-      );
 
       // Right Box: Financial Summary Rows
       let rowY = summaryY + 6;
@@ -945,13 +1076,20 @@ ${customerPhone ? `*Phone:* ${customerPhone}\n` : ''}${
 *Particulars:* ${order!.itemType}
 *Quantity:* ${order!.quantity}
 *Rate:* ₹${order!.rentOrPricePerUnit}
-*Security Deposit Held:* ₹${order!.depositAmount}
+*Security Deposit:* ₹${order!.depositAmount}
 *TOTAL OUTSTANDING AMOUNT:* ₹${order!.totalAmount.toLocaleString('en-IN')}
 ${order!.deliveryDate ? `*Scheduled Date:* ${order!.deliveryDate}\n` : ''}----------------------------------------${upiFooter}Thank you${
         displayedBizName ? `,\n*${displayedBizName}*` : '!'
       }`;
-    } else if (isCustomerAccount) {
-      const skuBreakdownText = formatSkuHoldingsForWhatsApp(skuHoldings);
+    } else if (showFullLedgerDeliveries) {
+      const itemizedWhatsAppLines =
+        itemizedRows.length > 0
+          ? `*WATER DELIVERY DETAILS (${clubSameEntries ? 'Clubbed by Rate' : 'All Entries'}):*\n` +
+            itemizedRows
+              .map((r) => `• ${r.particulars}: ${r.quantity} @ ${r.rate} = ${r.amount}`)
+              .join('\n') +
+            '\n----------------------------------------\n'
+          : '';
       return `${headerPrefix}*ACCOUNT STATEMENT*
 ----------------------------------------
 *Date:* ${dateOnlyFormatted}
@@ -959,8 +1097,10 @@ ${order!.deliveryDate ? `*Scheduled Date:* ${order!.deliveryDate}\n` : ''}------
 ${customerPhone ? `*Phone:* ${customerPhone}\n` : ''}${
         customerAddress ? `*Address:* ${customerAddress}\n` : ''
       }----------------------------------------
-${skuBreakdownText}*Jars Currently With Customer:* ${totalHoldingCount} Jars
-*Security Deposit Held:* ₹${securityDepositHeld.toLocaleString('en-IN')}
+${itemizedWhatsAppLines}*Jars Currently With Customer:* ${totalHoldingCount} Jars
+*Current Transaction Amount:* ₹${customerLedger.totalBilledAtPurchaseRates.toLocaleString('en-IN')}
+*Payments Received:* ₹${customerLedger.totalPaymentsReceived.toLocaleString('en-IN')}
+*Security Deposit:* ₹${securityDepositHeld.toLocaleString('en-IN')}
 *TOTAL OUTSTANDING AMOUNT:* ₹${customerTotalOutstanding.toLocaleString('en-IN')}
 ----------------------------------------${upiFooter}Thank you${
         displayedBizName ? `,\n*${displayedBizName}*` : '!'
@@ -980,7 +1120,7 @@ ${customerPhone ? `*Phone:* ${customerPhone}\n` : ''}${
 *Current Transaction Amount:* ₹${deliveryGrossAmount.toLocaleString('en-IN')}
 *Previous Outstanding Balance:* ₹${previousOutstandingBalance.toLocaleString('en-IN')}
 *Payments Received:* ₹${deliveryPaidAmount.toLocaleString('en-IN')}
-*Security Deposit Held:* ₹${securityDepositHeld.toLocaleString('en-IN')}
+*Security Deposit:* ₹${securityDepositHeld.toLocaleString('en-IN')}
 *TOTAL OUTSTANDING AMOUNT:* ₹${totalOutstandingAfterDelivery.toLocaleString('en-IN')}
 ${skuBreakdownText ? `\n----------------------------------------\n${skuBreakdownText}` : '\n'}----------------------------------------${upiFooter}Thank you${
         displayedBizName ? `,\n*${displayedBizName}*` : '!'
@@ -1105,6 +1245,47 @@ ${skuBreakdownText ? `\n----------------------------------------\n${skuBreakdown
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Configurable Clubbing Toggle: Club Same Particulars & Rate (Default ON) vs Show Every Entry Separately */}
+            {!isOrder && billableDeliveries.length > 0 && (
+              <div
+                className="inline-flex items-center bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px]"
+                title="Club multiple entries with the same particulars and rate into a concise bill, or disable to show every entry separately"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClubSameEntries(true);
+                    if (delivery && summaryMode === 'CURRENT_ONLY') {
+                      setSummaryMode('FULL_LEDGER');
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    clubSameEntries
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  Club Same Rate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClubSameEntries(false);
+                    if (delivery && summaryMode === 'CURRENT_ONLY') {
+                      setSummaryMode('FULL_LEDGER');
+                    }
+                  }}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                    !clubSameEntries
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  Every Entry
+                </button>
+              </div>
+            )}
+
             {/* Option to choose Financial Summary Mode while printing delivery invoices */}
             {delivery && (
               <div
@@ -1438,19 +1619,13 @@ ${skuBreakdownText ? `\n----------------------------------------\n${skuBreakdown
                       : 'bg-sky-50/90 text-sky-900 -mx-3.5 -mt-3.5 px-3.5 py-2 mb-2.5 border-b border-slate-300'
                   }`}
                 >
-                  ACCOUNT & DEPOSIT DETAILS
+                  ACCOUNT DETAILS
                 </div>
                 <div className="space-y-1 text-slate-700">
                   <p>
                     <span className="text-slate-500">Jars Currently With Customer:</span>{' '}
                     <strong className="font-mono font-bold text-slate-900 tabular-nums">
                       {totalHoldingCount} Jars
-                    </strong>
-                  </p>
-                  <p>
-                    <span className="text-slate-500">Security Deposit Held:</span>{' '}
-                    <strong className="font-mono font-bold text-slate-900 tabular-nums">
-                      ₹{securityDepositHeld.toLocaleString('en-IN')}.00
                     </strong>
                   </p>
                   {delivery && delivery.workerName && (
@@ -1471,8 +1646,26 @@ ${skuBreakdownText ? `\n----------------------------------------\n${skuBreakdown
 
             {/* 3. WATER DELIVERY DETAILS Section (Database-Driven Content Preserved Untouched) */}
             <div className="space-y-1.5">
-              <div className="text-[11px] font-extrabold uppercase tracking-wider text-sky-800">
-                WATER DELIVERY DETAILS
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[11px] font-extrabold uppercase tracking-wider text-sky-800">
+                  WATER DELIVERY DETAILS
+                </div>
+                {showFullLedgerDeliveries && billableDeliveries.length > 1 && (
+                  <label className="no-print inline-flex items-center gap-2 text-[11px] text-slate-600 bg-slate-100 hover:bg-slate-200/80 px-2.5 py-1 rounded-md border border-slate-300 cursor-pointer select-none font-sans transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={clubSameEntries}
+                      onChange={(e) => setClubSameEntries(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded text-sky-600 focus:ring-sky-500 border-slate-300 cursor-pointer"
+                    />
+                    <span className="font-semibold text-slate-800">
+                      Club same particulars &amp; rate
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      ({clubSameEntries ? `${billableDeliveries.length} entries → ${itemizedRows.length} concise` : `All ${billableDeliveries.length} entries separate`})
+                    </span>
+                  </label>
+                )}
               </div>
               <div
                 className={`invoice-table-wrapper overflow-x-auto ${
@@ -1539,32 +1732,16 @@ ${skuBreakdownText ? `\n----------------------------------------\n${skuBreakdown
                   : 'grid grid-cols-1 md:grid-cols-12 rounded-lg border border-slate-300 overflow-hidden divide-y md:divide-y-0 md:divide-x divide-slate-300'
               }`}
             >
-              {/* Left Column: AMOUNT IN WORDS & Container Holding Summary (A4) */}
+              {/* Left Column: AMOUNT IN WORDS & Customer Acknowledgement (A4) */}
               {!isPosMode && (
                 <div className="md:col-span-6 p-4 flex flex-col justify-between bg-slate-50/40 text-xs">
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-800 block">
-                        AMOUNT IN WORDS
-                      </span>
-                      <p className="font-bold text-slate-900 text-xs mt-1 border-b border-slate-200 pb-2">
-                        {numberToIndianWords(primaryInvoiceAmount)}
-                      </p>
-                    </div>
-                    <div className="space-y-1 text-slate-700">
-                      <p>
-                        <span className="text-slate-500">Jars Currently With Customer:</span>{' '}
-                        <strong className="font-mono font-bold text-slate-900 tabular-nums">
-                          {totalHoldingCount} Jars
-                        </strong>
-                      </p>
-                      <p>
-                        <span className="text-slate-500">Security Deposit Held:</span>{' '}
-                        <strong className="font-mono font-bold text-slate-900 tabular-nums">
-                          ₹{securityDepositHeld.toLocaleString('en-IN')}.00
-                        </strong>
-                      </p>
-                    </div>
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-sky-800 block">
+                      AMOUNT IN WORDS
+                    </span>
+                    <p className="font-bold text-slate-900 text-xs mt-1 border-b border-slate-200 pb-2">
+                      {numberToIndianWords(primaryInvoiceAmount)}
+                    </p>
                   </div>
 
                   <div className="pt-6 mt-4 border-t border-slate-200">
@@ -1636,81 +1813,43 @@ ${skuBreakdownText ? `\n----------------------------------------\n${skuBreakdown
         </div>
 
         {/* Dedicated WhatsApp Message & QR Dispatch Panel (Strictly Hidden in Print) */}
-        <div className="no-print p-3.5 sm:p-4 bg-slate-900 text-white border-t border-slate-800 shrink-0 space-y-2.5">
+        <div className="no-print px-4 py-3 bg-slate-900 text-white border-t border-slate-800 shrink-0 space-y-2">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            {/* Payment Info & QR Preview exclusively for WhatsApp Message */}
-            <div className="flex items-center gap-3 bg-slate-800/90 px-3 py-2 rounded-xl border border-slate-700 min-w-0">
-              {qrDataUrl ? (
-                <img
-                  src={qrDataUrl}
-                  alt="WhatsApp Payment QR"
-                  className="w-12 h-12 rounded bg-white p-0.5 shrink-0 object-contain"
-                />
+            {/* Payment Info Text exclusively for WhatsApp Message */}
+            <div className="min-w-0 flex-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 block">
+                WhatsApp Message Payment Info &amp; QR
+              </span>
+
+              {upiId ? (
+                <label className="flex items-center gap-2 text-xs text-slate-200 mt-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={includeDueQrInWhatsApp}
+                    onChange={(e) => setIncludeDueQrInWhatsApp(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-sky-500 focus:ring-sky-500 border-slate-600 cursor-pointer shrink-0"
+                  />
+                  <span className="truncate">
+                    Send QR &amp; UPI (<strong className="font-mono text-white">{upiId}</strong>
+                    {payableAmount > 0 ? ` • ₹${payableAmount.toLocaleString('en-IN')}` : ''}) with Message
+                  </span>
+                </label>
               ) : (
-                <div className="w-12 h-12 rounded bg-slate-700 flex items-center justify-center shrink-0">
-                  <QrCode className="w-5 h-5 text-slate-400" />
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-amber-300">Set UPI ID to include QR in WhatsApp:</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingBusiness(true)}
+                    className="text-xs font-semibold text-white underline cursor-pointer"
+                  >
+                    Configure UPI ID
+                  </button>
                 </div>
               )}
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400">
-                    WhatsApp Message Payment Info & QR
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.2 bg-slate-700 text-slate-300 rounded">
-                    Not Printed
-                  </span>
-                </div>
-
-                {upiId ? (
-                  <label className="flex items-center gap-2 text-xs text-slate-200 mt-1 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={includeDueQrInWhatsApp}
-                      onChange={(e) => setIncludeDueQrInWhatsApp(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded text-sky-500 focus:ring-sky-500 border-slate-600 cursor-pointer"
-                    />
-                    <span className="truncate">
-                      Send QR & UPI (<strong className="font-mono text-white">{upiId}</strong>
-                      {payableAmount > 0 ? ` • ₹${payableAmount.toLocaleString('en-IN')}` : ''}) with Message
-                    </span>
-                  </label>
-                ) : (
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-amber-300">Set UPI ID to include QR in WhatsApp:</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingBusiness(true)}
-                      className="text-xs font-semibold text-white underline cursor-pointer"
-                    >
-                      Configure UPI ID
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Action Buttons */}
             <div className="flex items-center justify-end gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={handleNativeShare}
-                className="px-3 py-2 text-xs font-semibold text-slate-200 bg-slate-800 border border-slate-700 rounded-xl hover:bg-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                title="Copy WhatsApp message text"
-              >
-                {copiedBillText ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-emerald-400">Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Share2 className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Copy Text</span>
-                  </>
-                )}
-              </button>
-
               {upiId && (
                 <button
                   type="button"
@@ -1719,7 +1858,7 @@ ${skuBreakdownText ? `\n----------------------------------------\n${skuBreakdown
                   title="Share or Download QR Image Card for WhatsApp"
                 >
                   <Download className="w-3.5 h-3.5 text-sky-400" />
-                  <span className="hidden sm:inline">QR Card</span>
+                  <span>QR Card</span>
                 </button>
               )}
 

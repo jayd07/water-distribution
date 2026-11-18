@@ -110,6 +110,7 @@ import { triggerHaptic } from './utils/haptics';
 import { formatDateToYYYYMMDD, isTimestampOnDate } from './utils/csvExport';
 import { useDeploymentCache } from './hooks/useDeploymentCache';
 import { purgeAllAppCaches } from './services/cacheService';
+import { calculateCustomerBillingLedger } from './utils/billingUtils';
 import { CheckCircle2, AlertCircle, Building2, Plus } from 'lucide-react';
 
 export default function App() {
@@ -130,10 +131,21 @@ export default function App() {
 
   // Initialize from local store for current business
   const [inventory, setInventory] = useState<InventoryItem[]>(() => getLocalStore(getActiveBusiness().id).inventory);
-  const [customers, setCustomers] = useState<Customer[]>(() => getLocalStore(getActiveBusiness().id).customers);
+  const [rawCustomers, setCustomers] = useState<Customer[]>(() => getLocalStore(getActiveBusiness().id).customers);
   const [deliveries, setDeliveries] = useState<DeliveryLog[]>(() => getLocalStore(getActiveBusiness().id).deliveries);
   const [transactions, setTransactions] = useState<TransactionRecord[]>(() => getLocalStore(getActiveBusiness().id).transactions);
   const [orders, setOrders] = useState<OrderBooking[]>(() => getLocalStore(getActiveBusiness().id).orders || []);
+
+  // Reconcile every customer's dueAmount against their chronological purchase-date delivery ledger
+  const customers = React.useMemo(() => {
+    return rawCustomers.map((c) => {
+      const ledger = calculateCustomerBillingLedger(c, deliveries, transactions);
+      if (ledger.deliveriesChronological.length > 0 && c.dueAmount !== ledger.netOutstandingBalance) {
+        return { ...c, dueAmount: ledger.netOutstandingBalance };
+      }
+      return c;
+    });
+  }, [rawCustomers, deliveries, transactions]);
   
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isSeeding, setIsSeeding] = useState<boolean>(false);
@@ -1011,6 +1023,8 @@ export default function App() {
     emptyJarsCollected: number;
     amountCollected: number;
     paymentMode: 'CASH' | 'UPI' | 'CREDIT';
+    unitPrice?: number;
+    itemType?: string;
     notes?: string;
   }) => {
     triggerHaptic('delivery');
@@ -1264,6 +1278,9 @@ export default function App() {
             ) : (
               <CustomerManagement
                 customers={customers}
+                deliveries={deliveries}
+                orders={orders}
+                transactions={transactions}
                 onOpenAddCustomer={() => {
                   if (!isBusinessRegistered) {
                     showToast("Please register or select your business first", "error");
@@ -1287,6 +1304,8 @@ export default function App() {
                 onClearSearch={() => setGlobalSearchTerm('')}
                 onRefresh={() => handleManualRefresh(currentBusiness.id)}
                 onDeleteCustomer={handleDeleteCustomer}
+                onOpenDeliveryInvoice={handleOpenDeliveryInvoice}
+                onOpenOrderInvoice={handleOpenOrderInvoice}
                 userRole="WORKER"
                 businessName={currentBusiness.name}
                 businessPhone={currentBusiness.ownerPhone}
@@ -1357,6 +1376,9 @@ export default function App() {
             {activeTab === 'customers' && (
               <CustomerManagement
                 customers={customers}
+                deliveries={deliveries}
+                orders={orders}
+                transactions={transactions}
                 onOpenAddCustomer={() => {
                   if (!isBusinessRegistered) {
                     showToast("Please register or select your business first", "error");
@@ -1382,6 +1404,8 @@ export default function App() {
                 onRefresh={() => handleManualRefresh(currentBusiness.id)}
                 onDeleteCustomer={handleDeleteCustomer}
                 onOpenCustomerInvoice={handleOpenCustomerInvoice}
+                onOpenDeliveryInvoice={handleOpenDeliveryInvoice}
+                onOpenOrderInvoice={handleOpenOrderInvoice}
                 userRole="OWNER"
                 businessName={currentBusiness.name}
                 businessPhone={currentBusiness.ownerPhone}
@@ -1542,6 +1566,7 @@ export default function App() {
         business={currentBusiness}
         inventory={inventory}
         deliveries={deliveries}
+        transactions={transactions}
         customers={customers}
         onUpdateBusiness={(updated) => {
           setCurrentBusiness(updated);
