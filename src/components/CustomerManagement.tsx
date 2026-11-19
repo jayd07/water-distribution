@@ -42,7 +42,8 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   CheckCircle2,
-  Clock
+  Clock,
+  FileSpreadsheet
 } from 'lucide-react';
 import { CardSpotlight } from './ui/CardSpotlight';
 import { AnimatedTabs, TabItem } from './ui/AnimatedTabs';
@@ -58,6 +59,7 @@ interface CustomerManagementProps {
   orders?: OrderBooking[];
   transactions?: TransactionRecord[];
   onOpenAddCustomer: () => void;
+  onOpenImportCustomers?: () => void;
   onOpenEditCustomer?: (customer: Customer) => void;
   onOpenSettleDue: (customer: Customer) => void;
   onQuickDeliveryToCustomer: (customer: Customer, mode?: 'STANDARD' | 'RETURN_ONLY' | 'DROP_ONLY') => void;
@@ -91,6 +93,7 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
   orders = [],
   transactions = [],
   onOpenAddCustomer,
+  onOpenImportCustomers,
   onOpenEditCustomer,
   onOpenSettleDue,
   onQuickDeliveryToCustomer,
@@ -607,6 +610,24 @@ Thank you,
               title="Create new bulk water or function order"
             >
               <span>+ Bulk Order</span>
+            </Button>
+          )}
+
+          {onOpenImportCustomers && (
+            <Button
+              id="import-customers-csv-btn"
+              variant="secondary"
+              size="md"
+              leftIcon={<FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />}
+              onClick={() => {
+                setRouteFilter('ALL');
+                setTypeFilter('ALL');
+                setDueFilter('ALL');
+                onOpenImportCustomers();
+              }}
+              title={isGujarati ? 'CSV અથવા Excel શીટમાંથી ગ્રાહકો ઉમેરો' : 'Upload CSV / Excel sheet to add customers'}
+            >
+              <span>{isGujarati ? 'CSV / Excel અપલોડ' : 'Import CSV / Excel'}</span>
             </Button>
           )}
 

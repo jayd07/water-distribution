@@ -91,6 +91,7 @@ import { GPayBusinessModal } from './components/GPayBusinessModal';
 import { NewDeliveryModal } from './components/NewDeliveryModal';
 import { RestockModal } from './components/RestockModal';
 import { AddCustomerModal } from './components/AddCustomerModal';
+import { ImportCustomersModal } from './components/ImportCustomersModal';
 import { SettleDueModal } from './components/SettleDueModal';
 import { FirebaseRulesModal } from './components/FirebaseRulesModal';
 import { AuthModal } from './components/AuthModal';
@@ -168,6 +169,7 @@ export default function App() {
   const [isRestockOpen, setIsRestockOpen] = useState(false);
   const [restockItemType, setRestockItemType] = useState<string | undefined>(undefined);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+  const [isImportCustomersOpen, setIsImportCustomersOpen] = useState(false);
   const [settleDueCustomer, setSettleDueCustomer] = useState<Customer | null>(null);
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -1305,6 +1307,14 @@ export default function App() {
                   }
                   setIsAddCustomerOpen(true);
                 }}
+                onOpenImportCustomers={() => {
+                  if (!isBusinessRegistered) {
+                    showToast("Please register or select your business first", "error");
+                    setIsGPayBusinessModalOpen(true);
+                    return;
+                  }
+                  setIsImportCustomersOpen(true);
+                }}
                 onOpenEditCustomer={(cust) => {
                   setEditingCustomer(cust);
                   setIsAddCustomerOpen(true);
@@ -1404,6 +1414,14 @@ export default function App() {
                   }
                   setEditingCustomer(null);
                   setIsAddCustomerOpen(true);
+                }}
+                onOpenImportCustomers={() => {
+                  if (!isBusinessRegistered) {
+                    showToast("Please register or select your business first", "error");
+                    setIsGPayBusinessModalOpen(true);
+                    return;
+                  }
+                  setIsImportCustomersOpen(true);
                 }}
                 onOpenEditCustomer={(cust) => {
                   setEditingCustomer(cust);
@@ -1524,6 +1542,16 @@ export default function App() {
           showToast(msg);
         }}
         onOpenRulesModal={() => setIsRulesModalOpen(true)}
+      />
+
+      <ImportCustomersModal
+        isOpen={isImportCustomersOpen}
+        onClose={() => setIsImportCustomersOpen(false)}
+        businessId={currentBusiness.id}
+        onImportComplete={(msg) => {
+          refreshFromLocalStore(currentBusiness.id);
+          showToast(msg);
+        }}
       />
 
       <SettleDueModal

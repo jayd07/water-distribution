@@ -5,11 +5,13 @@ import {
   setDoc, 
   getDocs, 
   collection,
-  deleteDoc
+  deleteDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { Customer, OrderBooking, InventoryItem, TransactionRecord } from '../types';
 import { 
   addCustomerLocal, 
+  addCustomersBulkLocal,
   updateCustomerLocal,
   deleteCustomerLocal,
   recordDeliveryLocal, 
@@ -273,6 +275,72 @@ export async function createCustomer(
   }
 
   return localCust;
+}
+
+/**
+ * Bulk import customers from CSV/Excel sheet into local storage and Firestore batches
+ */
+export async function bulkImportCustomers(
+  businessId: string,
+  customersData: Array<Omit<Customer, 'id' | 'createdAt'>>
+): Promise<{ created: Customer[]; syncedCount: number; syncError?: string }> {
+  if (!customersData.length) {
+    return { created: [], syncedCount: 0 };
+  }
+
+  // 1. Save atomically to localStore with fresh isolated records (no stale fields)
+  const created = addCustomersBulkLocal(customersData, businessId);
+
+  // 2. Sync to Firestore in batches of up to 450 documents
+  let syncedCount = 0;
+  let syncError: string | undefined;
+  const BATCH_LIMIT = 450;
+
+  try {
+    for (let i = 0; i < created.length; i += BATCH_LIMIT) {
+      const chunk = created.slice(i, i + BATCH_LIMIT);
+      const batch = writeBatch(db);
+      for (const cust of chunk) {
+        const customerRef = doc(db, `businesses/${businessId}/customers`, cust.id);
+        const payload: Customer = {
+          id: cust.id,
+          name: cust.name,
+          phone: cust.phone || '',
+          address: cust.address || '',
+          customerType: cust.customerType,
+          jarsHolding: cust.jarsHolding,
+          dueAmount: cust.dueAmount,
+          depositPaid: cust.depositPaid,
+          route: cust.route || '',
+          createdAt: cust.createdAt,
+          ...(cust.customJarRate !== undefined && cust.customJarRate > 0
+            ? { customJarRate: cust.customJarRate }
+            : {}),
+        };
+        batch.set(customerRef, payload);
+      }
+
+      await Promise.race([
+        batch.commit(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Firestore bulk import sync timeout')), 8000)
+        ),
+      ]);
+      syncedCount += chunk.length;
+    }
+  } catch (error) {
+    console.warn('Firestore bulk customer import note (saved locally):', error);
+    syncError = error instanceof Error ? error.message : 'Cloud sync pending';
+    if (auth.currentUser) {
+      try {
+        handleFirestoreError(error, OperationType.WRITE, `businesses/${businessId}/customers`);
+      } catch {
+        // Error info logged cleanly by handleFirestoreError; local records remain preserved
+      }
+    }
+  }
+
+  return { created, syncedCount, syncError };
 }
 
 /**

@@ -270,17 +270,55 @@ export function deleteInventoryItemLocal(
   return true;
 }
 
+function generateUniqueCustomerId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `cust_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  }
+  return `cust_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export function addCustomerLocal(customerData: Omit<Customer, 'id' | 'createdAt'>, businessId?: string): Customer {
   const store = getLocalStore(businessId);
-  const id = `cust_${Date.now().toString().slice(-6)}`;
+  const id = generateUniqueCustomerId();
   const newCustomer: Customer = {
     ...customerData,
+    phone: (customerData.phone ?? '').trim(),
+    address: (customerData.address ?? '').trim(),
+    route: (customerData.route ?? '').trim(),
     id,
     createdAt: Date.now()
   };
   store.customers.unshift(newCustomer);
   saveLocalStore(store, businessId);
   return newCustomer;
+}
+
+export function addCustomersBulkLocal(
+  customersData: Array<Omit<Customer, 'id' | 'createdAt'>>,
+  businessId?: string
+): Customer[] {
+  const store = getLocalStore(businessId);
+  if (!Array.isArray(store.customers)) {
+    store.customers = [];
+  }
+  const baseTime = Date.now();
+  const createdCustomers: Customer[] = customersData.map((row, idx) => ({
+    name: row.name.trim(),
+    phone: (row.phone ?? '').trim(),
+    address: (row.address ?? '').trim(),
+    customerType: row.customerType === 'COMMERCIAL' ? 'COMMERCIAL' : 'RESIDENTIAL',
+    jarsHolding: Math.max(0, Number(row.jarsHolding) || 0),
+    dueAmount: Math.max(0, Math.round(((Number(row.dueAmount) || 0) + Number.EPSILON) * 100) / 100),
+    depositPaid: Math.max(0, Math.round(((Number(row.depositPaid) || 0) + Number.EPSILON) * 100) / 100),
+    route: (row.route ?? '').trim(),
+    ...(row.customJarRate !== undefined && row.customJarRate > 0 ? { customJarRate: row.customJarRate } : {}),
+    id: generateUniqueCustomerId(),
+    createdAt: baseTime + idx,
+  }));
+
+  store.customers = [...createdCustomers, ...store.customers];
+  saveLocalStore(store, businessId);
+  return createdCustomers;
 }
 
 export function updateCustomerLocal(
