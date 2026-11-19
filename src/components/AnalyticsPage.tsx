@@ -589,20 +589,20 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Package className="w-4 h-4 text-sky-600" />
+              <Package className="w-4 h-4 text-sky-600 shrink-0" />
               <span>Daily Delivery Trends ({dateRange} Days)</span>
             </h2>
             <p className="text-xs text-slate-500">
               Jars delivered vs empty jars returned back to warehouse per day
             </p>
           </div>
-          <div className="flex items-center gap-4 text-xs font-medium">
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-xs bg-sky-500"></span>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-medium">
+            <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <span className="w-3 h-3 rounded-xs bg-sky-500 shrink-0"></span>
               <span className="text-slate-700">Jars Delivered</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-xs bg-emerald-500"></span>
+            <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <span className="w-3 h-3 rounded-xs bg-emerald-500 shrink-0"></span>
               <span className="text-slate-700">Empty Bottles Collected</span>
             </div>
           </div>
@@ -676,23 +676,23 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
       {/* Main Charts Row 2: Revenue from Settled Transactions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Revenue Breakdown & Trend */}
-        <CardSpotlight spotlightColor="rgba(16, 185, 129, 0.08)" className="lg:col-span-2 p-6">
+        <CardSpotlight spotlightColor="rgba(16, 185, 129, 0.08)" className="lg:col-span-2 p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-emerald-600" />
+                <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>Settled Transaction Revenue (₹)</span>
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 mt-0.5">
                 Direct refill settlements and outstanding due clearances
               </p>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-start sm:self-auto">
               <div className="inline-flex p-0.5 bg-slate-100 rounded-lg text-xs font-medium">
                 <button
                   onClick={() => setRevenueView('daily')}
-                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
                     revenueView === 'daily' 
                       ? 'bg-white text-slate-900 font-bold shadow-2xs' 
                       : 'text-slate-600 hover:text-slate-900'
@@ -702,7 +702,7 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
                 </button>
                 <button
                   onClick={() => setRevenueView('cumulative')}
-                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer whitespace-nowrap ${
                     revenueView === 'cumulative' 
                       ? 'bg-white text-slate-900 font-bold shadow-2xs' 
                       : 'text-slate-600 hover:text-slate-900'
@@ -714,23 +714,24 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
             </div>
           </div>
 
-          <div className="h-72 w-full mt-5">
+          <div className="h-76 sm:h-72 w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
               {revenueView === 'daily' ? (
-                <BarChart data={dailyChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <BarChart data={dailyChartData} margin={{ top: 12, right: 8, left: -14, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis 
                     dataKey="displayDate" 
-                    tick={{ fontSize: 11, fill: '#64748b' }} 
+                    tick={{ fontSize: 10, fill: '#64748b' }} 
                     tickLine={false}
                     axisLine={{ stroke: '#e2e8f0' }}
                     interval={dateRange === 30 ? 3 : 1}
                   />
                   <YAxis 
-                    tick={{ fontSize: 11, fill: '#64748b' }} 
+                    tick={{ fontSize: 10, fill: '#64748b' }} 
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(val) => `₹${val}`}
+                    width={48}
+                    tickFormatter={(val) => `₹${val >= 1000 ? `${(val / 1000).toFixed(val % 1000 === 0 ? 0 : 1)}k` : val}`}
                   />
                   <Tooltip 
                     contentStyle={{ 
@@ -750,14 +751,40 @@ export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({
                   />
                   <Legend 
                     verticalAlign="top" 
-                    height={36} 
-                    iconType="circle"
-                    formatter={(value) => {
-                      if (value === 'upiSettled') return 'UPI / Online';
-                      if (value === 'cashSettled') return 'Cash on Delivery';
-                      if (value === 'bankSettled') return 'Bank NEFT/RTGS';
-                      return value;
-                    }}
+                    height={44}
+                    wrapperStyle={{ top: 0, left: 0, right: 0, width: '100%' }}
+                    content={({ payload }) => (
+                      <ul className="recharts-default-legend flex flex-wrap items-center justify-start sm:justify-center gap-x-3.5 sm:gap-x-6 gap-y-1.5 text-[11px] sm:text-xs font-medium text-slate-700 m-0 pb-2.5 px-1 list-none">
+                        {(payload || []).map((entry: any, index: number) => {
+                          const rawValue = entry.value;
+                          const label =
+                            rawValue === 'upiSettled'
+                              ? 'UPI / Online'
+                              : rawValue === 'cashSettled'
+                              ? 'Cash on Delivery'
+                              : rawValue === 'bankSettled'
+                              ? 'Bank NEFT/RTGS'
+                              : rawValue;
+                          return (
+                            <li
+                              key={`legend-item-${index}`}
+                              className="recharts-legend-item inline-flex items-center gap-1.5 whitespace-nowrap leading-none"
+                            >
+                              <svg
+                                className="recharts-surface w-2.5 h-2.5 shrink-0 overflow-visible"
+                                viewBox="0 0 10 10"
+                                aria-hidden="true"
+                              >
+                                <circle cx="5" cy="5" r="5" fill={entry.color} />
+                              </svg>
+                              <span className="recharts-legend-item-text text-slate-700">
+                                {label}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   />
                   <Bar dataKey="upiSettled" name="upiSettled" stackId="revenue" fill="#0284c7" radius={[0, 0, 0, 0]} />
                   <Bar dataKey="cashSettled" name="cashSettled" stackId="revenue" fill="#f59e0b" radius={[0, 0, 0, 0]} />
