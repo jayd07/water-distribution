@@ -3,6 +3,7 @@ import { X, Calendar, Phone, User, Package, ShieldCheck, MapPin, Truck, AlertCir
 import { OrderBooking, Customer, InventoryItem } from '../types';
 import { Button } from './ui/Button';
 import { triggerHaptic } from '../utils/haptics';
+import { useLanguage } from '../context/LanguageContext';
 
 export interface OrderModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   preselectedCustomer,
   defaultStaffName = '',
 }) => {
+  const { t, isGujarati } = useLanguage();
   const equipmentOptions = useMemo(() => {
     const merged = DEFAULT_EQUIPMENT_OPTIONS.map((opt) => ({ ...opt }));
     inventory.forEach((inv) => {
@@ -204,15 +206,15 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customerName.trim()) {
-      setErrorMsg('Please enter customer or event organizer name');
+      setErrorMsg(isGujarati ? 'કૃપા કરીને ગ્રાહક અથવા આયોજકનું નામ લખો' : 'Please enter customer or event organizer name');
       return;
     }
     if (!customerMobile.trim()) {
-      setErrorMsg('Please provide a customer mobile number for SMS/WhatsApp billing');
+      setErrorMsg(isGujarati ? 'કૃપા કરીને બિલિંગ માટે ગ્રાહકનો મોબાઇલ નંબર દાખલ કરો' : 'Please provide a customer mobile number for SMS/WhatsApp billing');
       return;
     }
     if (quantity < 1) {
-      setErrorMsg('Quantity must be at least 1 item');
+      setErrorMsg(isGujarati ? 'જથ્થો ઓછામાં ઓછો ૧ હોવો જરૂરી છે' : 'Quantity must be at least 1 item');
       return;
     }
 
@@ -249,7 +251,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       triggerHaptic('order');
       onClose();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to save booking order');
+      setErrorMsg(err.message || (isGujarati ? 'બુકિંગ ઓર્ડર સાચવવામાં નિષ્ફળ' : 'Failed to save booking order'));
     } finally {
       setIsSubmitting(false);
     }
@@ -265,10 +267,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
         <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5 bg-slate-900 text-white border-b border-slate-800 shrink-0">
           <div className="min-w-0 pr-2">
             <h3 className="font-semibold text-sm sm:text-base leading-tight truncate">
-              {editingOrder ? 'Modify Bulk / Function Order' : 'New Bulk / Function Order'}
+              {editingOrder
+                ? (isGujarati ? 'બલ્ક / ફંક્શન ઓર્ડરમાં ફેરફાર કરો' : 'Modify Bulk / Function Order')
+                : (isGujarati ? 'નવો બલ્ક / ફંક્શન ઓર્ડર' : 'New Bulk / Function Order')}
             </h3>
             <p className="text-[11px] sm:text-xs text-slate-400 truncate">
-              {editingOrder ? `Updating Order #${editingOrder.id}` : 'Book bulk water jars or event coolers, mark delivered & collect payment'}
+              {editingOrder
+                ? (isGujarati ? `ઓર્ડર #${editingOrder.id} અપડેટ કરી રહ્યા છીએ` : `Updating Order #${editingOrder.id}`)
+                : (isGujarati ? 'બલ્ક પાણી જાર અથવા કુલર બુક કરો, ડિલિવરી નોંધો અને પેમેન્ટ લો' : 'Book bulk water jars or event coolers, mark delivered & collect payment')}
             </p>
           </div>
           <button
@@ -296,7 +302,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Customer / Organizer Name *
+                {isGujarati ? 'ગ્રાહક / આયોજકનું નામ *' : 'Customer / Organizer Name *'}
               </label>
               <div className="relative">
                 <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -306,7 +312,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   id="order-customer-name-input"
                   autoComplete="name"
                   list="customer-suggestions"
-                  placeholder="e.g., Search existing or type new name"
+                  placeholder={isGujarati ? 'દા.ત., જૂના ગ્રાહક શોધો અથવા નવું નામ લખો' : 'e.g., Search existing or type new name'}
                   value={customerName}
                   onChange={e => handleCustomerNameChange(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -323,7 +329,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Customer Mobile Number *
+                {isGujarati ? 'ગ્રાહકનો મોબાઇલ નંબર *' : 'Customer Mobile Number *'}
               </label>
               <div className="relative">
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -331,7 +337,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   type="tel"
                   required
                   id="order-customer-mobile-input"
-                  placeholder="e.g., +91 98200 77112"
+                  placeholder={isGujarati ? 'દા.ત., +91 98200 77112' : 'e.g., +91 98200 77112'}
                   value={customerMobile}
                   onChange={e => setCustomerMobile(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -343,14 +349,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           {/* Delivery Address / Venue */}
           <div>
             <label className="block text-slate-700 font-semibold mb-1">
-              Function Venue / Delivery Address
+              {isGujarati ? 'પ્રસંગનું સ્થળ / ડિલિવરી સરનામું' : 'Function Venue / Delivery Address'}
             </label>
             <div className="relative">
               <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
                 id="order-venue-address-input"
-                placeholder="e.g., Community Hall, Society Gate, or Home Address"
+                placeholder={isGujarati ? 'દા.ત., કોમ્યુનિટી હોલ, સોસાયટી ગેટ અથવા ઘરનું સરનામું' : 'e.g., Community Hall, Society Gate, or Home Address'}
                 value={customerAddress}
                 onChange={e => setCustomerAddress(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -362,7 +368,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-slate-700 font-semibold mb-1">
-                Water Jar / Cooler Item *
+                {isGujarati ? 'પાણી જાર / કુલર વસ્તુ *' : 'Water Jar / Cooler Item *'}
               </label>
               <div className="relative">
                 <Package className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -386,7 +392,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Quantity *
+                {isGujarati ? 'જથ્થો (નંગ) *' : 'Quantity *'}
               </label>
               <input
                 type="number"
@@ -405,7 +411,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-cyan-900 font-semibold mb-1">
-                  Rate / Price per Unit (₹)
+                  {isGujarati ? 'નંગ દીઠ ભાવ / ભાડું (₹)' : 'Rate / Price per Unit (₹)'}
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-2 text-slate-400 font-bold">₹</span>
@@ -422,7 +428,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
               <div>
                 <label className="block text-cyan-900 font-semibold mb-1">
-                  Security Deposit If Any (₹)
+                  {isGujarati ? 'સિક્યોરિટી ડિપોઝિટ જો હોય તો (₹)' : 'Security Deposit If Any (₹)'}
                 </label>
                 <div className="relative">
                   <ShieldCheck className="w-4 h-4 text-cyan-600 absolute left-3 top-2.5" />
@@ -441,9 +447,9 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             {/* Total Calculation Display */}
             <div className="flex items-center justify-between pt-2 border-t border-cyan-200 text-cyan-950">
               <div>
-                <span className="text-xs font-semibold block">Total Bill Amount:</span>
+                <span className="text-xs font-semibold block">{isGujarati ? 'કુલ બિલ રકમ:' : 'Total Bill Amount:'}</span>
                 <span className="text-[11px] text-cyan-700">
-                  ({quantity} × ₹{rentOrPricePerUnit}) + ₹{depositAmount} deposit
+                  ({quantity} × ₹{rentOrPricePerUnit}) + ₹{depositAmount} {isGujarati ? 'ડિપોઝિટ' : 'deposit'}
                 </span>
               </div>
               <div className="text-xl font-bold text-cyan-700 font-mono tabular-nums">
@@ -455,14 +461,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           {/* Payment Collection Section */}
           <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/80 rounded-xl space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-950">Payment Collection</span>
+              <span className="text-xs font-bold text-emerald-950">{isGujarati ? 'પેમેન્ટ વસૂલાત' : 'Payment Collection'}</span>
               {balanceDue > 0 ? (
                 <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
-                  Balance Due: ₹{balanceDue.toLocaleString('en-IN')}
+                  {isGujarati ? 'બાકી રકમ' : 'Balance Due'}: ₹{balanceDue.toLocaleString('en-IN')}
                 </span>
               ) : (
                 <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
-                  Settled in Full
+                  {isGujarati ? 'પૂરેપૂરું ચૂકવેલ' : 'Settled in Full'}
                 </span>
               )}
             </div>
@@ -490,7 +496,11 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                   }`}
                 >
-                  {ps === 'PAID' ? 'Paid Full' : ps === 'PARTIAL' ? 'Partial / Advance' : 'Pay Later'}
+                  {ps === 'PAID'
+                    ? (isGujarati ? 'પૂરું ચૂકવેલ' : 'Paid Full')
+                    : ps === 'PARTIAL'
+                    ? (isGujarati ? 'અંશતઃ / એડવાન્સ' : 'Partial / Advance')
+                    : (isGujarati ? 'બાકી રાખો' : 'Pay Later')}
                 </button>
               ))}
             </div>
@@ -499,7 +509,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
                 <div>
                   <label className="block text-emerald-950 font-semibold mb-1">
-                    Amount Collected (₹)
+                    {isGujarati ? 'મળેલ રકમ (₹)' : 'Amount Collected (₹)'}
                   </label>
                   <input
                     type="number"
@@ -519,7 +529,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
                 <div>
                   <label className="block text-emerald-950 font-semibold mb-1">
-                    Payment Mode
+                    {t.worker.paymentMode}
                   </label>
                   <div className="grid grid-cols-3 gap-1">
                     <button
@@ -532,7 +542,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                       }`}
                     >
                       <Banknote className="w-3.5 h-3.5 shrink-0" />
-                      <span>Cash</span>
+                      <span>{isGujarati ? 'રોકડ' : 'Cash'}</span>
                     </button>
                     <button
                       type="button"
@@ -556,7 +566,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                       }`}
                     >
                       <Landmark className="w-3.5 h-3.5 shrink-0" />
-                      <span>Bank</span>
+                      <span>{isGujarati ? 'બેંક' : 'Bank'}</span>
                     </button>
                   </div>
                 </div>
@@ -568,7 +578,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Order Delivery Status
+                {isGujarati ? 'ઓર્ડર ડિલિવરી સ્થિતિ' : 'Order Delivery Status'}
               </label>
               <select
                 value={status}
@@ -576,16 +586,16 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                 id="order-status-select"
                 className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
-                <option value="DELIVERED">Delivered Now (Completed)</option>
-                <option value="CONFIRMED">Confirmed / Scheduled</option>
-                <option value="PENDING">Pending Approval</option>
-                <option value="CANCELLED">Cancelled</option>
+                <option value="DELIVERED">{isGujarati ? 'અત્યારે ડિલિવર (પૂર્ણ)' : 'Delivered Now (Completed)'}</option>
+                <option value="CONFIRMED">{isGujarati ? 'કન્ફર્મ / શેડ્યૂલ' : 'Confirmed / Scheduled'}</option>
+                <option value="PENDING">{isGujarati ? 'પેન્ડિંગ / મંજૂરી બાકી' : 'Pending Approval'}</option>
+                <option value="CANCELLED">{isGujarati ? 'રદ થયેલ' : 'Cancelled'}</option>
               </select>
             </div>
 
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Function / Delivery Date
+                {isGujarati ? 'પ્રસંગ / ડિલિવરી તારીખ' : 'Function / Delivery Date'}
               </label>
               <div className="relative">
                 <Calendar className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
@@ -604,14 +614,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Handled By / Staff or Vehicle
+                {isGujarati ? 'સંભાળનાર સ્ટાફ / વાહન' : 'Handled By / Staff or Vehicle'}
               </label>
               <div className="relative">
                 <Truck className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
                   id="order-assigned-driver-input"
-                  placeholder="Enter staff or vehicle"
+                  placeholder={isGujarati ? 'સ્ટાફ અથવા ગાડી નંબર લખો' : 'Enter staff or vehicle'}
                   value={assignedDriver}
                   onChange={e => setAssignedDriver(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-3 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -621,12 +631,12 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Function Notes & Instructions
+                {isGujarati ? 'પ્રસંગની નોંધ અને સૂચનાઓ' : 'Function Notes & Instructions'}
               </label>
               <input
                 type="text"
                 id="order-notes-input"
-                placeholder="e.g., Wedding banquet, house function, extra glasses"
+                placeholder={isGujarati ? 'દા.ત., લગ્ન પ્રસંગ, ઘરનો કાર્યક્રમ, વધારાના ગ્લાસ' : 'e.g., Wedding banquet, house function, extra glasses'}
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -644,7 +654,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               size="md"
               onClick={onClose}
             >
-              Cancel
+              {t.common.cancel}
             </Button>
             <Button
               type="submit"
@@ -656,10 +666,10 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               leftIcon={<Check className="w-4 h-4 stroke-[2.5]" />}
             >
               {editingOrder
-                ? 'Update Order'
+                ? (isGujarati ? 'ઓર્ડર અપડેટ કરો' : 'Update Order')
                 : status === 'DELIVERED'
-                ? 'Save & Mark Delivered'
-                : 'Confirm & Book Order'}
+                ? (isGujarati ? 'સાચવો અને ડિલિવર નોંધો' : 'Save & Mark Delivered')
+                : (isGujarati ? 'ઓર્ડર કન્ફર્મ અને બુક કરો' : 'Confirm & Book Order')}
             </Button>
           </div>
 

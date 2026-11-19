@@ -38,7 +38,6 @@ import {
   updateBusiness,
   deleteBusinessCompletely,
   clearBusinessStaleData,
-  removeWorkerFromBusiness,
   syncBusinessesFromCloud,
   syncWorkerAssignmentsFromCloud,
   getAllBusinesses,
@@ -616,24 +615,6 @@ export const GPayBusinessModal: React.FC<GPayBusinessModalProps> = ({
     }
   };
 
-  // Handle Worker Self-Deregistration / Leaving Business
-  const handleWorkerLeaveBusiness = async (workerId: string, bizId: string, bizName: string) => {
-    if (!confirm(`Are you sure you want to remove your worker profile from "${bizName}"?`)) {
-      return;
-    }
-
-    try {
-      await removeWorkerFromBusiness(workerId, bizId);
-      setMatchedWorker(prev => prev.filter(w => w.workerRecord.id !== workerId));
-      setSuccessMsg('Worker profile removed.');
-      if (activeSession?.activeBusinessId === bizId) {
-        onSignOutPhone();
-      }
-    } catch {
-      setErrorMsg('Failed to remove worker profile.');
-    }
-  };
-
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4 animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85dvh] sm:max-h-[90vh]">
@@ -1079,17 +1060,6 @@ export const GPayBusinessModal: React.FC<GPayBusinessModalProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            title="Remove your worker profile from this business"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleWorkerLeaveBusiness(workerRecord.id, business.id, business.name);
-                            }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
                           <div className="flex items-center gap-1 text-xs font-semibold text-emerald-700 group-hover:translate-x-0.5 transition-transform">
                             <span>Continue</span>
                             <ChevronRight className="w-4 h-4" />

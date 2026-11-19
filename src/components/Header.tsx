@@ -414,7 +414,7 @@ export const Header: React.FC<HeaderProps> = ({
                       />
                     )}
                     <Truck className="w-3.5 h-3.5 shrink-0" />
-                    <span>Delivery Run</span>
+                    <span>{t.nav.driverRun}</span>
                   </button>
 
                   <button
@@ -425,7 +425,7 @@ export const Header: React.FC<HeaderProps> = ({
                         ? 'text-slate-900'
                         : 'text-slate-700 hover:text-slate-900'
                     }`}
-                    title="Orders"
+                    title={t.nav.orders}
                   >
                     {activeTab === 'orders' && (
                       <motion.div
@@ -435,7 +435,7 @@ export const Header: React.FC<HeaderProps> = ({
                       />
                     )}
                     <Package className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
-                    <span>{t.nav.orders || 'Orders'}</span>
+                    <span>{t.nav.orders}</span>
                   </button>
 
                   <button
@@ -446,7 +446,7 @@ export const Header: React.FC<HeaderProps> = ({
                         ? 'text-slate-900'
                         : 'text-slate-700 hover:text-slate-900'
                     }`}
-                    title="Customers"
+                    title={t.nav.customers}
                   >
                     {activeTab === 'customers' && (
                       <motion.div
@@ -456,7 +456,7 @@ export const Header: React.FC<HeaderProps> = ({
                       />
                     )}
                     <Users className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                    <span>Customers</span>
+                    <span>{t.nav.customers}</span>
                   </button>
                 </>
               ) : (
@@ -1255,7 +1255,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <LayoutDashboard className="w-3.5 h-3.5" />
-                <span>Dashboard</span>
+                <span>{t.nav.dashboard}</span>
               </button>
 
               <button
@@ -1268,7 +1268,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Package className="w-3.5 h-3.5" />
-                <span>Orders</span>
+                <span>{t.nav.orders}</span>
               </button>
 
               <button
@@ -1281,7 +1281,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Users className="w-3.5 h-3.5" />
-                <span>Customers</span>
+                <span>{t.nav.customers}</span>
               </button>
 
               <button
@@ -1294,7 +1294,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <Boxes className="w-3.5 h-3.5" />
-                <span>Inventory</span>
+                <span>{t.nav.inventory}</span>
               </button>
 
               <button

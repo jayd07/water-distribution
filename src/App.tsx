@@ -1267,6 +1267,7 @@ export default function App() {
                 onOpenNewOrder={handleOpenNewOrder}
                 onUpdateStatus={handleUpdateOrderStatus}
                 userRole="WORKER"
+                userSession={userSession}
                 searchQuery={globalSearchTerm}
                 onSearchChange={setGlobalSearchTerm}
               />
@@ -1383,6 +1384,7 @@ export default function App() {
                 onOpenInvoice={handleOpenOrderInvoice}
                 onDeleteOrder={handleDeleteOrder}
                 onUpdateStatus={handleUpdateOrderStatus}
+                userSession={userSession}
                 searchQuery={globalSearchTerm}
                 onSearchChange={setGlobalSearchTerm}
               />

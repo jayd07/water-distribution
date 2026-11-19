@@ -184,7 +184,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 </div>
                 <div>
                   <span className="text-xs font-bold block text-slate-900">{t.nav.orders}</span>
-                  <span className="text-[11px] text-slate-500">Bulk & function bookings</span>
+                  <span className="text-[11px] text-slate-500">{isGujarati ? 'બલ્ક અને ફંક્શન બુકિંગ' : 'Bulk & function bookings'}</span>
                 </div>
               </button>
 
