@@ -7,7 +7,7 @@ import {
   collection,
   deleteDoc
 } from 'firebase/firestore';
-import { Customer, OrderBooking, InventoryItem } from '../types';
+import { Customer, OrderBooking, InventoryItem, TransactionRecord } from '../types';
 import { 
   addCustomerLocal, 
   updateCustomerLocal,
@@ -20,6 +20,7 @@ import {
   recordDueSettlementLocal,
   createOrderLocal,
   updateOrderLocal,
+  recordOrderTransactionLocal,
   deleteOrderLocal,
   getLocalStore,
   saveLocalStore,
@@ -422,20 +423,74 @@ export async function seedInitialDataIfEmpty(businessId: string): Promise<boolea
 }
 
 /**
- * Create or save an event/function cooler or jar order booking
+ * Create or save an event/function cooler or bulk jar order booking
+ * Supports both Owner and Worker roles and records initial payment transactions if paid on creation.
  */
 export async function saveOrderBooking(
   businessId: string,
   orderData: Omit<OrderBooking, 'id' | 'bookingDate'>
 ): Promise<OrderBooking> {
-  const newOrder = createOrderLocal(orderData, businessId);
+  const normalizedData: Omit<OrderBooking, 'id' | 'bookingDate'> = {
+    ...orderData,
+    amountPaid:
+      orderData.amountPaid !== undefined
+        ? orderData.amountPaid
+        : orderData.paymentStatus === 'PAID'
+        ? orderData.totalAmount
+        : 0,
+    ...(orderData.status === 'DELIVERED' && !orderData.deliveredAt
+      ? { deliveredAt: Date.now() }
+      : {}),
+  };
+
+  const newOrder = createOrderLocal(normalizedData, businessId);
   try {
-    if (auth.currentUser) {
-      await setDoc(doc(db, `businesses/${businessId}/orders`, newOrder.id), newOrder);
-    }
+    await Promise.race([
+      setDoc(doc(db, `businesses/${businessId}/orders`, newOrder.id), newOrder),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore order sync timeout')), 2500))
+    ]);
   } catch (err) {
     console.warn("Could not sync order to cloud (saved locally):", err);
   }
+
+  const paidAmount = Number(newOrder.amountPaid) || 0;
+  if (paidAmount > 0) {
+    const mode = newOrder.paymentMode || 'CASH';
+    const txId = recordOrderTransactionLocal(
+      newOrder,
+      paidAmount,
+      mode,
+      businessId,
+      newOrder.collectedBy || newOrder.createdBy || newOrder.assignedDriver
+    );
+    const txRecord: TransactionRecord = {
+      id: txId,
+      customerId: newOrder.customerId || newOrder.id,
+      customerName: newOrder.customerName,
+      type: 'REFILL_PAYMENT',
+      amount: paidAmount,
+      paymentMode: mode,
+      timestamp: Date.now(),
+      notes: `Bulk/Event Order #${newOrder.id.toUpperCase()} (${newOrder.quantity}× ${newOrder.itemType})`
+    };
+    try {
+      await Promise.race([
+        setDoc(doc(db, `businesses/${businessId}/transactions`, txId), txRecord),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore transaction sync timeout')), 2500))
+      ]);
+    } catch (err) {
+      console.warn("Could not sync order payment transaction to cloud (saved locally):", err);
+    }
+
+    triggerBackgroundBackup(businessId, 'TRANSACTION', {
+      id: txId,
+      customerName: newOrder.customerName,
+      paymentMode: mode,
+      amount: paidAmount,
+      timestamp: txRecord.timestamp
+    });
+  }
+
   return newOrder;
 }
 
@@ -447,16 +502,148 @@ export async function modifyOrderBooking(
   orderId: string,
   updates: Partial<OrderBooking>
 ): Promise<OrderBooking | null> {
-  const updated = updateOrderLocal(orderId, updates, businessId);
+  const existing = (getLocalStore(businessId).orders || []).find(o => o.id === orderId);
+  const patchedUpdates: Partial<OrderBooking> = {
+    ...updates,
+    ...(updates.status === 'DELIVERED' && !existing?.deliveredAt && !updates.deliveredAt
+      ? { deliveredAt: Date.now() }
+      : {}),
+  };
+
+  const updated = updateOrderLocal(orderId, patchedUpdates, businessId);
   if (!updated) return null;
 
   try {
-    if (auth.currentUser) {
-      await setDoc(doc(db, `businesses/${businessId}/orders`, orderId), updated, { merge: true });
-    }
+    await Promise.race([
+      setDoc(doc(db, `businesses/${businessId}/orders`, orderId), updated, { merge: true }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore order update timeout')), 2500))
+    ]);
   } catch (err) {
     console.warn("Could not sync order update to cloud (updated locally):", err);
   }
+
+  // If editing increased amountPaid directly, record the delta transaction
+  const prevPaid = Number(existing?.amountPaid) || 0;
+  const nextPaid = Number(updated.amountPaid) || 0;
+  const deltaPaid = Math.round(((nextPaid - prevPaid) + Number.EPSILON) * 100) / 100;
+  if (deltaPaid > 0) {
+    const mode = updated.paymentMode || 'CASH';
+    const txId = recordOrderTransactionLocal(
+      updated,
+      deltaPaid,
+      mode,
+      businessId,
+      updated.collectedBy || updated.assignedDriver
+    );
+    const txRecord: TransactionRecord = {
+      id: txId,
+      customerId: updated.customerId || updated.id,
+      customerName: updated.customerName,
+      type: 'REFILL_PAYMENT',
+      amount: deltaPaid,
+      paymentMode: mode,
+      timestamp: Date.now(),
+      notes: `Bulk/Event Order #${updated.id.toUpperCase()} (${updated.quantity}× ${updated.itemType})`
+    };
+    try {
+      await Promise.race([
+        setDoc(doc(db, `businesses/${businessId}/transactions`, txId), txRecord),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore transaction sync timeout')), 2500))
+      ]);
+    } catch (err) {
+      console.warn("Could not sync order payment delta to cloud (saved locally):", err);
+    }
+  }
+
+  return updated;
+}
+
+/**
+ * Collect payment on an existing bulk/function order (and optionally mark it Delivered)
+ */
+export async function collectOrderPayment(
+  businessId: string,
+  order: OrderBooking,
+  paymentInput: {
+    amountPaidNow: number;
+    paymentMode: 'CASH' | 'UPI' | 'BANK_TRANSFER';
+    markDelivered?: boolean;
+    collectedBy?: string;
+  }
+): Promise<OrderBooking | null> {
+  const safeNow = Math.max(0, Math.round((paymentInput.amountPaidNow + Number.EPSILON) * 100) / 100);
+  const existingPaid = Number(order.amountPaid) || (order.paymentStatus === 'PAID' ? order.totalAmount : 0);
+  const newTotalPaid = Math.min(
+    order.totalAmount,
+    Math.round(((existingPaid + safeNow) + Number.EPSILON) * 100) / 100
+  );
+
+  const nextPaymentStatus: OrderBooking['paymentStatus'] =
+    newTotalPaid >= order.totalAmount
+      ? 'PAID'
+      : newTotalPaid > 0
+      ? 'PARTIAL'
+      : 'PENDING';
+
+  const updates: Partial<OrderBooking> = {
+    amountPaid: newTotalPaid,
+    paymentStatus: nextPaymentStatus,
+    paymentMode: paymentInput.paymentMode,
+    ...(paymentInput.collectedBy ? { collectedBy: paymentInput.collectedBy } : {}),
+    ...(paymentInput.markDelivered
+      ? { status: 'DELIVERED', deliveredAt: order.deliveredAt || Date.now() }
+      : {}),
+  };
+
+  const updated = updateOrderLocal(order.id, updates, businessId);
+  if (!updated) return null;
+
+  try {
+    await Promise.race([
+      setDoc(doc(db, `businesses/${businessId}/orders`, order.id), updated, { merge: true }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore order payment update timeout')), 2500))
+    ]);
+  } catch (err) {
+    console.warn("Could not sync order payment update to cloud (saved locally):", err);
+  }
+
+  if (safeNow > 0) {
+    const txId = recordOrderTransactionLocal(
+      updated,
+      safeNow,
+      paymentInput.paymentMode,
+      businessId,
+      paymentInput.collectedBy
+    );
+    const txRecord: TransactionRecord = {
+      id: txId,
+      customerId: updated.customerId || updated.id,
+      customerName: updated.customerName,
+      type: 'REFILL_PAYMENT',
+      amount: safeNow,
+      paymentMode: paymentInput.paymentMode,
+      timestamp: Date.now(),
+      notes: `Bulk/Event Order #${updated.id.toUpperCase()} (${updated.quantity}× ${updated.itemType})${paymentInput.collectedBy ? ` • By ${paymentInput.collectedBy}` : ''}`
+    };
+
+    try {
+      await Promise.race([
+        setDoc(doc(db, `businesses/${businessId}/transactions`, txId), txRecord),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore order tx sync timeout')), 2500))
+      ]);
+    } catch (err) {
+      console.warn("Could not sync order payment transaction to cloud (saved locally):", err);
+    }
+
+    triggerBackgroundBackup(businessId, 'TRANSACTION', {
+      id: txId,
+      customerName: updated.customerName,
+      paymentMode: paymentInput.paymentMode,
+      amount: safeNow,
+      timestamp: txRecord.timestamp
+    });
+  }
+
   return updated;
 }
 
@@ -468,6 +655,14 @@ export async function removeOrderBooking(
   orderId: string
 ): Promise<boolean> {
   const ok = deleteOrderLocal(orderId, businessId);
+  try {
+    await Promise.race([
+      deleteDoc(doc(db, `businesses/${businessId}/orders`, orderId)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore order delete timeout')), 2500))
+    ]);
+  } catch (err) {
+    console.warn("Could not sync order deletion to cloud (removed locally):", err);
+  }
   return ok;
 }
 

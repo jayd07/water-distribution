@@ -63,7 +63,8 @@ interface CustomerManagementProps {
   onQuickDeliveryToCustomer: (customer: Customer, mode?: 'STANDARD' | 'RETURN_ONLY' | 'DROP_ONLY') => void;
   onOpenPaymentQR?: (amount?: number, note?: string) => void;
   onOpenNewDelivery?: () => void;
-  onOpenNewOrder?: () => void;
+  onOpenNewOrder?: (customer?: Customer) => void;
+  onOpenOrdersTab?: () => void;
   onOpenRestock?: () => void;
   searchQuery?: string;
   onSearchChange?: (term: string) => void;
@@ -93,6 +94,8 @@ export const CustomerManagement: React.FC<CustomerManagementProps> = ({
   onOpenEditCustomer,
   onOpenSettleDue,
   onQuickDeliveryToCustomer,
+  onOpenNewOrder,
+  onOpenOrdersTab,
   searchQuery = '',
   onSearchChange,
   onClearSearch,
@@ -583,6 +586,30 @@ Thank you,
             </Button>
           )}
 
+          {onOpenOrdersTab && (
+            <Button
+              variant="secondary"
+              size="md"
+              leftIcon={<ClipboardList className="w-3.5 h-3.5 text-cyan-600" />}
+              onClick={onOpenOrdersTab}
+              title="View bulk & function orders"
+            >
+              <span>Bulk Orders ({orders.length})</span>
+            </Button>
+          )}
+
+          {onOpenNewOrder && (
+            <Button
+              variant="secondary"
+              size="md"
+              leftIcon={<Plus className="w-3.5 h-3.5 text-amber-600 stroke-[2.5]" />}
+              onClick={() => onOpenNewOrder()}
+              title="Create new bulk water or function order"
+            >
+              <span>+ Bulk Order</span>
+            </Button>
+          )}
+
           <Button
             variant="primary"
             size="md"
@@ -937,6 +964,21 @@ Thank you,
                   <Truck className="w-3.5 h-3.5" />
                   <span>Record Delivery</span>
                 </button>
+
+                {onOpenNewOrder && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cust = activeHistoryCustomer;
+                      setSelectedCustomerForHistory(null);
+                      onOpenNewOrder(cust);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Bulk / Function Order</span>
+                  </button>
+                )}
 
                 {userRole !== 'WORKER' && onOpenCustomerInvoice && (
                   <button

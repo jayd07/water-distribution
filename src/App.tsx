@@ -1098,6 +1098,7 @@ export default function App() {
   };
 
   const handleEditOrder = (order: OrderBooking) => {
+    if (userSession?.role === 'WORKER') return;
     setEditingOrder(order);
     setIsOrderModalOpen(true);
   };
@@ -1105,6 +1106,7 @@ export default function App() {
   const handleSaveOrder = async (orderData: Omit<OrderBooking, 'id' | 'bookingDate'>, orderId?: string) => {
     triggerHaptic('order');
     if (orderId) {
+      if (userSession?.role === 'WORKER') return;
       const updated = await modifyOrderBooking(currentBusiness.id, orderId, orderData);
       if (updated) {
         setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
@@ -1121,6 +1123,7 @@ export default function App() {
   };
 
   const handleDeleteOrder = async (orderId: string) => {
+    if (userSession?.role === 'WORKER') return;
     await removeOrderBooking(currentBusiness.id, orderId);
     setOrders(prev => prev.filter(o => o.id !== orderId));
     refreshFromLocalStore(currentBusiness.id);
@@ -1137,6 +1140,7 @@ export default function App() {
   };
 
   const handleOpenDeliveryInvoice = (delivery: DeliveryLog) => {
+    if (userSession?.role === 'WORKER') return;
     setInvoiceDelivery(delivery);
     setInvoiceOrder(null);
     setInvoiceCustomer(null);
@@ -1144,6 +1148,7 @@ export default function App() {
   };
 
   const handleOpenOrderInvoice = (order: OrderBooking) => {
+    if (userSession?.role === 'WORKER') return;
     setInvoiceOrder(order);
     setInvoiceDelivery(null);
     setInvoiceCustomer(null);
@@ -1255,7 +1260,17 @@ export default function App() {
           </>
         ) : userSession?.role === 'WORKER' ? (
           <>
-            {activeTab === 'driver_run' ? (
+            {activeTab === 'orders' ? (
+              <OrdersManagement
+                orders={orders}
+                customers={customers}
+                onOpenNewOrder={handleOpenNewOrder}
+                onUpdateStatus={handleUpdateOrderStatus}
+                userRole="WORKER"
+                searchQuery={globalSearchTerm}
+                onSearchChange={setGlobalSearchTerm}
+              />
+            ) : activeTab === 'driver_run' ? (
               <DriverRunView
                 business={currentBusiness}
                 customers={customers}
@@ -1549,6 +1564,7 @@ export default function App() {
         onSave={handleSaveOrder}
         editingOrder={editingOrder}
         customers={customers}
+        inventory={inventory}
       />
 
       {/* Print-Friendly Receipt & WhatsApp Bill Modal */}

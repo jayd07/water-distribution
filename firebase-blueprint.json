@@ -196,6 +196,35 @@
       },
       "required": ["id", "customerId", "type", "amount", "paymentMode", "timestamp"]
     },
+    "OrderBooking": {
+      "title": "OrderBooking",
+      "description": "Bulk water jar or event cooler order booking created by owners or field workers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "customerId": { "type": "string", "maxLength": 64 },
+        "customerName": { "type": "string", "maxLength": 128 },
+        "customerMobile": { "type": "string", "maxLength": 32 },
+        "customerAddress": { "type": "string", "maxLength": 256 },
+        "itemType": { "type": "string", "maxLength": 128 },
+        "quantity": { "type": "number" },
+        "depositAmount": { "type": "number" },
+        "rentOrPricePerUnit": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "amountPaid": { "type": "number" },
+        "paymentMode": { "type": "string", "enum": ["CASH", "UPI", "BANK_TRANSFER"] },
+        "paymentStatus": { "type": "string", "enum": ["PAID", "PARTIAL", "PENDING"] },
+        "status": { "type": "string", "enum": ["PENDING", "CONFIRMED", "DELIVERED", "CANCELLED"] },
+        "bookingDate": { "type": "number" },
+        "deliveredAt": { "type": "number" },
+        "deliveryDate": { "type": "string", "maxLength": 32 },
+        "assignedDriver": { "type": "string", "maxLength": 128 },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "collectedBy": { "type": "string", "maxLength": 128 },
+        "notes": { "type": "string", "maxLength": 256 }
+      },
+      "required": ["id", "customerName", "customerMobile", "itemType", "quantity", "totalAmount", "paymentStatus", "status", "bookingDate"]
+    },
     "BusinessAccount": {
       "title": "BusinessAccount",
       "description": "Registered business profile and supply configuration",
@@ -323,6 +352,10 @@
     "/businesses/{businessId}/transactions/{transactionId}": {
       "schema": "TransactionRecord",
       "description": "Financial receipts and due settlements"
+    },
+    "/businesses/{businessId}/orders/{orderId}": {
+      "schema": "OrderBooking",
+      "description": "Bulk jar and function/event cooler orders"
     }
   }
 }

@@ -172,6 +172,23 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               )}
 
               <button
+                onClick={() => handleSelectTab('orders')}
+                className={`p-3.5 rounded-2xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'orders'
+                    ? 'bg-cyan-50/90 border-cyan-300 text-cyan-900 shadow-xs'
+                    : 'bg-slate-50/80 hover:bg-slate-100 border-slate-200/80 text-slate-800'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-xl bg-cyan-100 text-cyan-700 flex items-center justify-center">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold block text-slate-900">{t.nav.orders}</span>
+                  <span className="text-[11px] text-slate-500">Bulk & function bookings</span>
+                </div>
+              </button>
+
+              <button
                 onClick={() => {
                   setIsMoreOpen(false);
                   onOpenNewOrder();
@@ -182,8 +199,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <CalendarDays className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="text-xs font-bold block text-sky-950">{isGujarati ? 'નવો ઓર્ડર બુક કરો' : 'Book Cooler Order'}</span>
-                  <span className="text-[11px] text-sky-700">{isGujarati ? 'ઈવેન્ટ અને ડિસ્પેન્સર' : 'Events & Dispenser'}</span>
+                  <span className="text-xs font-bold block text-sky-950">{isGujarati ? 'નવો ઓર્ડર બુક કરો' : 'New Bulk / Function Order'}</span>
+                  <span className="text-[11px] text-sky-700">{isGujarati ? 'ઈવેન્ટ અને ડિસ્પેન્સર' : 'Create, deliver & collect'}</span>
                 </div>
               </button>
             </div>
@@ -225,64 +242,108 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <nav 
         id="mobile-bottom-navigation"
         aria-label="Mobile Navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 shadow-[0_-4px_24px_rgba(0,0,0,0.07)] px-3 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 shadow-[0_-4px_24px_rgba(0,0,0,0.07)] px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
       >
-        <div className="flex items-center justify-around max-w-lg mx-auto">
+        <div className="grid grid-cols-5 items-center max-w-lg mx-auto">
           {isWorker ? (
             <>
-              {/* Worker Profile: Customers Tab */}
+              {/* Slot 1: Worker Active Delivery Run */}
+              <button
+                id="mobile-nav-driver-run-worker"
+                onClick={() => setActiveTab('driver_run')}
+                className={`flex flex-col items-center justify-center min-w-0 min-h-[48px] py-1 px-1 rounded-xl transition-all cursor-pointer ${
+                  activeTab === 'driver_run'
+                    ? 'text-sky-700 font-bold'
+                    : 'text-slate-500 hover:text-slate-800 font-medium'
+                }`}
+              >
+                <div className={`p-1.5 rounded-xl transition-all ${activeTab === 'driver_run' ? 'bg-sky-50 text-sky-600' : 'text-slate-500'}`}>
+                  <Truck className="w-5 h-5 stroke-[2]" />
+                </div>
+                <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full">{t.nav.driverRun}</span>
+              </button>
+
+              {/* Slot 2: Worker Profile Customers Tab */}
               <button
                 id="mobile-nav-customers-worker"
                 onClick={() => setActiveTab('customers')}
-                className={`flex flex-col items-center justify-center flex-1 min-h-[48px] py-1 px-2 rounded-xl transition-all cursor-pointer ${
+                className={`flex flex-col items-center justify-center min-w-0 min-h-[48px] py-1 px-1 rounded-xl transition-all cursor-pointer ${
                   activeTab === 'customers'
                     ? 'text-sky-700 font-bold'
                     : 'text-slate-500 hover:text-slate-800 font-medium'
                 }`}
               >
                 <div className={`p-1.5 rounded-xl transition-all ${activeTab === 'customers' ? 'bg-sky-50 text-sky-600' : 'text-slate-500'}`}>
-                  <Users className="w-5 h-5 stroke-[2.2]" />
+                  <Users className="w-5 h-5 stroke-[2]" />
                 </div>
-                <span className="text-[10px] tracking-tight mt-0.5">{t.nav.customers}</span>
+                <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full">{t.nav.customers}</span>
               </button>
 
-              {/* Primary Quick Delivery Action (Elevated Floating Center Button) */}
-              <div className="relative -top-3.5 px-2">
+              {/* Slot 3 (Exact Center): Primary Quick Delivery Action */}
+              <div className="flex items-center justify-center">
                 <button
                   id="mobile-quick-delivery-btn"
                   onClick={onOpenNewDelivery}
                   aria-label="Record New Delivery"
-                  className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-sky-600 via-sky-500 to-cyan-500 text-white flex flex-col items-center justify-center shadow-lg shadow-sky-600/30 hover:shadow-sky-600/40 active:scale-95 transition-all cursor-pointer border-3 border-white ring-1 ring-slate-100"
+                  className="relative -top-3.5 w-13 h-13 rounded-2xl bg-gradient-to-tr from-sky-600 via-sky-500 to-cyan-500 text-white flex flex-col items-center justify-center gap-0.5 shadow-lg shadow-sky-600/30 hover:shadow-sky-600/40 active:scale-95 transition-all cursor-pointer border-3 border-white ring-1 ring-slate-100 shrink-0"
                 >
-                  <Truck className="w-5 h-5 stroke-[2.2]" />
-                  <span className="text-[8.5px] font-extrabold tracking-tight -mt-0.5">{t.nav.dispatch}</span>
+                  <Plus className="w-5 h-5 stroke-[2.5] shrink-0" />
+                  <span className="text-[8.5px] font-extrabold leading-none tracking-tight">{t.nav.dispatch}</span>
                 </button>
               </div>
 
-              {/* Account / Business Switcher */}
-              {onOpenBusinessModal && (
+              {/* Slot 4: Account / Business Switcher (or Stock fallback) */}
+              {onOpenBusinessModal ? (
                 <button
                   onClick={onOpenBusinessModal}
-                  className="flex flex-col items-center justify-center flex-1 min-h-[48px] py-1 px-1 rounded-xl transition-all cursor-pointer text-slate-500 hover:text-slate-800 font-medium"
+                  className="flex flex-col items-center justify-center min-w-0 min-h-[48px] py-1 px-1 rounded-xl transition-all cursor-pointer text-slate-500 hover:text-slate-800 font-medium"
                 >
                   <div className="p-1.5 rounded-xl text-slate-500">
                     <Store className="w-5 h-5 stroke-[2]" />
                   </div>
-                  <span className="text-[10px] tracking-tight mt-0.5">{t.nav.account}</span>
+                  <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full">{t.nav.account}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setActiveTab('inventory')}
+                  className={`flex flex-col items-center justify-center min-w-0 min-h-[48px] py-1 px-1 rounded-xl transition-all cursor-pointer ${
+                    activeTab === 'inventory'
+                      ? 'text-sky-700 font-bold'
+                      : 'text-slate-500 hover:text-slate-800 font-medium'
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-xl transition-all ${activeTab === 'inventory' ? 'bg-sky-50 text-sky-600' : 'text-slate-500'}`}>
+                    <Boxes className="w-5 h-5 stroke-[2]" />
+                  </div>
+                  <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full">{t.nav.inventory}</span>
                 </button>
               )}
 
-              {/* Worker Logout */}
-              {onSignOut && (
+              {/* Slot 5: Worker Logout (or More fallback) */}
+              {onSignOut ? (
                 <button
                   id="mobile-worker-logout-btn"
                   onClick={onSignOut}
-                  className="flex flex-col items-center justify-center flex-1 min-h-[48px] py-1 px-1 rounded-xl transition-all cursor-pointer text-rose-600 hover:text-rose-700 font-medium"
+                  className="flex flex-col items-center justify-center min-w-0 min-h-[48px] py-1 px-1 rounded-xl transition-all cursor-pointer text-rose-600 hover:text-rose-700 font-medium"
                 >
                   <div className="p-1.5 rounded-xl text-rose-500">
                     <LogOut className="w-5 h-5 stroke-[2]" />
                   </div>
-                  <span className="text-[10px] font-semibold tracking-tight mt-0.5">{t.nav.logout}</span>
+                  <span className="text-[10px] font-semibold tracking-tight mt-0.5 truncate max-w-full">{t.nav.logout}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIsMoreOpen(true)}
+                  className={`flex flex-col items-center justify-center min-w-0 min-h-[48px] py-1 px-1 rounded-xl transition-all cursor-pointer ${
+                    isMoreOpen
+                      ? 'text-sky-700 font-bold'
+                      : 'text-slate-500 hover:text-slate-800 font-medium'
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-xl transition-all ${isMoreOpen ? 'bg-sky-50 text-sky-600' : 'text-slate-500'}`}>
+                    <MoreHorizontal className="w-5 h-5 stroke-[2]" />
+                  </div>
+                  <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full">{t.nav.more}</span>
                 </button>
               )}
             </>

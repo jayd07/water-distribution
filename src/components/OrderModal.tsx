@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { X, Calendar, Phone, User, Package, DollarSign, ShieldCheck, MapPin, Truck, AlertCircle, Check } from 'lucide-react';
-import { OrderBooking, Customer } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, Calendar, Phone, User, Package, ShieldCheck, MapPin, Truck, AlertCircle, Check, Banknote, Smartphone, Landmark } from 'lucide-react';
+import { OrderBooking, Customer, InventoryItem } from '../types';
 import { Button } from './ui/Button';
 import { triggerHaptic } from '../utils/haptics';
 
@@ -10,15 +10,20 @@ export interface OrderModalProps {
   onSave: (orderData: Omit<OrderBooking, 'id' | 'bookingDate'>, orderId?: string) => Promise<void>;
   editingOrder?: OrderBooking | null;
   customers: Customer[];
+  inventory?: InventoryItem[];
+  preselectedCustomer?: Customer | null;
+  defaultStaffName?: string;
 }
 
-const EQUIPMENT_OPTIONS = [
+const EMPTY_INVENTORY: InventoryItem[] = [];
+
+const DEFAULT_EQUIPMENT_OPTIONS = [
+  { name: '20L Normal Water Jar', defaultRate: 35, defaultDeposit: 0, category: 'Bulk Jars' },
+  { name: '20L Chilled Mineral Water Jar', defaultRate: 45, defaultDeposit: 0, category: 'Bulk Jars' },
+  { name: '10L Easy-Pour Bottle', defaultRate: 25, defaultDeposit: 0, category: 'Bulk Jars' },
   { name: 'Electric Water Cooler Dispenser', defaultRate: 850, defaultDeposit: 1000, category: 'Cooler' },
   { name: 'Tabletop Mini Jar Cooler', defaultRate: 400, defaultDeposit: 500, category: 'Cooler' },
   { name: 'Heavy Duty Steel Cooler Stand', defaultRate: 250, defaultDeposit: 300, category: 'Accessories' },
-  { name: '20L Normal Water Jar', defaultRate: 35, defaultDeposit: 150, category: 'Bulk Jars' },
-  { name: '20L Chilled Mineral Water Jar', defaultRate: 45, defaultDeposit: 150, category: 'Bulk Jars' },
-  { name: '10L Easy-Pour Bottle', defaultRate: 25, defaultDeposit: 100, category: 'Bulk Jars' }
 ];
 
 export const OrderModal: React.FC<OrderModalProps> = ({
@@ -26,17 +31,43 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   onClose,
   onSave,
   editingOrder,
-  customers
+  customers,
+  inventory = EMPTY_INVENTORY,
+  preselectedCustomer,
+  defaultStaffName = '',
 }) => {
+  const equipmentOptions = useMemo(() => {
+    const merged = DEFAULT_EQUIPMENT_OPTIONS.map((opt) => ({ ...opt }));
+    inventory.forEach((inv) => {
+      const label = inv.displayName || inv.itemType;
+      const existing = merged.find(
+        (m) => m.name.toLowerCase() === label.toLowerCase() || m.name.toLowerCase() === inv.itemType.toLowerCase()
+      );
+      if (existing) {
+        if (inv.unitPrice > 0) existing.defaultRate = inv.unitPrice;
+      } else {
+        merged.unshift({
+          name: label,
+          defaultRate: inv.unitPrice || 35,
+          defaultDeposit: 0,
+          category: 'Inventory SKU',
+        });
+      }
+    });
+    return merged;
+  }, [inventory]);
+
   const [customerName, setCustomerName] = useState('');
   const [customerMobile, setCustomerMobile] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerId, setCustomerId] = useState<string | undefined>(undefined);
-  const [itemType, setItemType] = useState(EQUIPMENT_OPTIONS[0].name);
-  const [quantity, setQuantity] = useState<number>(1);
-  const [depositAmount, setDepositAmount] = useState<number>(1000);
-  const [rentOrPricePerUnit, setRentOrPricePerUnit] = useState<number>(850);
+  const [itemType, setItemType] = useState(DEFAULT_EQUIPMENT_OPTIONS[0].name);
+  const [quantity, setQuantity] = useState<number>(10);
+  const [depositAmount, setDepositAmount] = useState<number>(0);
+  const [rentOrPricePerUnit, setRentOrPricePerUnit] = useState<number>(35);
   const [paymentStatus, setPaymentStatus] = useState<'PAID' | 'PARTIAL' | 'PENDING'>('PAID');
+  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'BANK_TRANSFER'>('CASH');
+  const [partialPaidInput, setPartialPaidInput] = useState<number>(0);
   const [status, setStatus] = useState<'PENDING' | 'CONFIRMED' | 'DELIVERED' | 'CANCELLED'>('CONFIRMED');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [assignedDriver, setAssignedDriver] = useState('');
@@ -44,8 +75,11 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const getTodayStr = () => new Date().toISOString().split('T')[0];
+
   // Auto-fill or reset when modal opens or editingOrder changes
   useEffect(() => {
+    if (!isOpen) return;
     if (editingOrder) {
       setCustomerName(editingOrder.customerName);
       setCustomerMobile(editingOrder.customerMobile);
@@ -56,37 +90,53 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       setDepositAmount(editingOrder.depositAmount);
       setRentOrPricePerUnit(editingOrder.rentOrPricePerUnit);
       setPaymentStatus(editingOrder.paymentStatus);
+      setPaymentMode(editingOrder.paymentMode || 'CASH');
+      const existingPaid =
+        editingOrder.amountPaid !== undefined
+          ? editingOrder.amountPaid
+          : editingOrder.paymentStatus === 'PAID'
+          ? editingOrder.totalAmount
+          : 0;
+      setPartialPaidInput(existingPaid);
       setStatus(editingOrder.status);
       setDeliveryDate(editingOrder.deliveryDate || '');
-      setAssignedDriver(editingOrder.assignedDriver || '');
+      setAssignedDriver(editingOrder.assignedDriver || defaultStaffName || '');
       setNotes(editingOrder.notes || '');
     } else {
-      setCustomerName('');
-      setCustomerMobile('');
-      setCustomerAddress('');
-      setCustomerId(undefined);
-      const defaultItem = EQUIPMENT_OPTIONS[0];
-      setItemType(defaultItem.name);
-      setQuantity(1);
-      setDepositAmount(defaultItem.defaultDeposit);
-      setRentOrPricePerUnit(defaultItem.defaultRate);
+      if (preselectedCustomer) {
+        setCustomerId(preselectedCustomer.id);
+        setCustomerName(preselectedCustomer.name);
+        setCustomerMobile(preselectedCustomer.phone || '');
+        setCustomerAddress(preselectedCustomer.address || '');
+      } else {
+        setCustomerId(undefined);
+        setCustomerName('');
+        setCustomerMobile('');
+        setCustomerAddress('');
+      }
+      const defaultBulk = equipmentOptions[0];
+      setItemType(defaultBulk.name);
+      setQuantity(10);
+      setDepositAmount(defaultBulk.defaultDeposit);
+      setRentOrPricePerUnit(defaultBulk.defaultRate);
       setPaymentStatus('PAID');
+      setPaymentMode('CASH');
+      setPartialPaidInput(10 * defaultBulk.defaultRate + defaultBulk.defaultDeposit);
       setStatus('CONFIRMED');
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      setDeliveryDate(tomorrow.toISOString().split('T')[0]);
-      setAssignedDriver('');
+      setDeliveryDate(getTodayStr());
+      setAssignedDriver(defaultStaffName || '');
       setNotes('');
     }
     setErrorMsg('');
-  }, [editingOrder, isOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, editingOrder?.id, preselectedCustomer?.id]);
 
   // Handle changing item type to update default rates if creating new
   const handleItemChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selected = e.target.value;
     setItemType(selected);
     if (!editingOrder) {
-      const match = EQUIPMENT_OPTIONS.find(opt => opt.name === selected);
+      const match = equipmentOptions.find(opt => opt.name === selected);
       if (match) {
         setRentOrPricePerUnit(match.defaultRate);
         setDepositAmount(match.defaultDeposit * quantity);
@@ -94,19 +144,38 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     }
   };
 
-  // Handle selecting an existing customer
-  const handleCustomerSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedId = e.target.value;
-    if (!selectedId) {
-      setCustomerId(undefined);
+  // Handle typing or picking an existing customer from datalist suggestions
+  const handleCustomerNameChange = (val: string) => {
+    setCustomerName(val);
+    const normalizedVal = val.trim().toLowerCase();
+    if (!normalizedVal) {
+      if (customerId) {
+        const prevCustomer = customers.find((c) => c.id === customerId);
+        setCustomerId(undefined);
+        if (!editingOrder && prevCustomer) {
+          if (customerMobile === (prevCustomer.phone || '')) setCustomerMobile('');
+          if (customerAddress === (prevCustomer.address || '')) setCustomerAddress('');
+        }
+      }
       return;
     }
-    const found = customers.find(c => c.id === selectedId);
-    if (found) {
-      setCustomerId(found.id);
-      setCustomerName(found.name);
-      setCustomerMobile(found.phone);
-      setCustomerAddress(found.address);
+
+    const matchedCustomer = customers.find(
+      (c) => c.name.trim().toLowerCase() === normalizedVal
+    );
+
+    if (matchedCustomer) {
+      setCustomerId(matchedCustomer.id);
+      setCustomerName(matchedCustomer.name);
+      setCustomerMobile(matchedCustomer.phone || '');
+      setCustomerAddress(matchedCustomer.address || '');
+    } else if (customerId) {
+      const prevCustomer = customers.find((c) => c.id === customerId);
+      setCustomerId(undefined);
+      if (!editingOrder && prevCustomer) {
+        if (customerMobile === (prevCustomer.phone || '')) setCustomerMobile('');
+        if (customerAddress === (prevCustomer.address || '')) setCustomerAddress('');
+      }
     }
   };
 
@@ -115,15 +184,22 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     const q = Math.max(1, newQty);
     setQuantity(q);
     if (!editingOrder) {
-      const match = EQUIPMENT_OPTIONS.find(opt => opt.name === itemType);
+      const match = equipmentOptions.find(opt => opt.name === itemType);
       if (match) {
         setDepositAmount(match.defaultDeposit * q);
       }
     }
   };
 
-  // Derived Total Amount
-  const totalAmount = (quantity * rentOrPricePerUnit) + depositAmount;
+  // Derived Total Amount & Paid Amount
+  const totalAmount = Math.max(0, Math.round(((quantity * rentOrPricePerUnit) + depositAmount + Number.EPSILON) * 100) / 100);
+  const effectiveAmountPaid =
+    paymentStatus === 'PAID'
+      ? totalAmount
+      : paymentStatus === 'PENDING'
+      ? 0
+      : Math.min(totalAmount, Math.max(0, Number(partialPaidInput) || 0));
+  const balanceDue = Math.max(0, Math.round((totalAmount - effectiveAmountPaid + Number.EPSILON) * 100) / 100);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,6 +216,13 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       return;
     }
 
+    const normalizedPaymentStatus: OrderBooking['paymentStatus'] =
+      effectiveAmountPaid >= totalAmount
+        ? 'PAID'
+        : effectiveAmountPaid > 0
+        ? 'PARTIAL'
+        : 'PENDING';
+
     try {
       setIsSubmitting(true);
       setErrorMsg('');
@@ -153,10 +236,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
         depositAmount,
         rentOrPricePerUnit,
         totalAmount,
-        paymentStatus,
+        amountPaid: effectiveAmountPaid,
+        paymentMode: effectiveAmountPaid > 0 ? paymentMode : undefined,
+        paymentStatus: normalizedPaymentStatus,
         status,
         deliveryDate,
-        assignedDriver,
+        assignedDriver: assignedDriver.trim(),
+        createdBy: editingOrder?.createdBy || defaultStaffName || undefined,
+        collectedBy: effectiveAmountPaid > 0 ? (defaultStaffName || assignedDriver.trim() || undefined) : editingOrder?.collectedBy,
         notes: notes.trim()
       }, editingOrder?.id);
       triggerHaptic('order');
@@ -172,16 +259,16 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
   return (
     <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[85dvh] sm:max-h-[90vh] flex flex-col">
+      <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[88dvh] sm:max-h-[90vh] flex flex-col">
         
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5 bg-slate-900 text-white border-b border-slate-800 shrink-0">
           <div className="min-w-0 pr-2">
             <h3 className="font-semibold text-sm sm:text-base leading-tight truncate">
-              {editingOrder ? 'Modify Cooler / Jar Order' : 'Book Cooler & Jar Order (Function / Event)'}
+              {editingOrder ? 'Modify Bulk / Function Order' : 'New Bulk / Function Order'}
             </h3>
             <p className="text-[11px] sm:text-xs text-slate-400 truncate">
-              {editingOrder ? `Updating Order #${editingOrder.id}` : 'Reserve coolers, dispensers, or event bulk water jars'}
+              {editingOrder ? `Updating Order #${editingOrder.id}` : 'Book bulk water jars or event coolers, mark delivered & collect payment'}
             </p>
           </div>
           <button
@@ -205,28 +292,6 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
           )}
 
-          {/* Quick select existing customer if any */}
-          {customers && customers.length > 0 && (
-            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-              <label className="block text-slate-600 font-medium mb-1">
-                Select from Existing Registered Customers (Optional):
-              </label>
-              <select
-                onChange={handleCustomerSelect}
-                value={customerId || ''}
-                id="order-customer-select"
-                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              >
-                <option value="">-- Or enter new customer / event organizer details below --</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.phone}) - {c.address}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           {/* Customer Details Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -239,11 +304,20 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   type="text"
                   required
                   id="order-customer-name-input"
-                  placeholder="e.g., Client / Event Organizer Name"
+                  autoComplete="name"
+                  list="customer-suggestions"
+                  placeholder="e.g., Search existing or type new name"
                   value={customerName}
-                  onChange={e => setCustomerName(e.target.value)}
+                  onChange={e => handleCustomerNameChange(e.target.value)}
                   className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
+                <datalist id="customer-suggestions">
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {[c.phone, c.address].filter(Boolean).join(' • ')}
+                    </option>
+                  ))}
+                </datalist>
               </div>
             </div>
 
@@ -269,14 +343,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           {/* Delivery Address / Venue */}
           <div>
             <label className="block text-slate-700 font-semibold mb-1">
-              Event Venue / Delivery Address
+              Function Venue / Delivery Address
             </label>
             <div className="relative">
               <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
                 id="order-venue-address-input"
-                placeholder="e.g., Building / Venue Address"
+                placeholder="e.g., Community Hall, Society Gate, or Home Address"
                 value={customerAddress}
                 onChange={e => setCustomerAddress(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -288,7 +362,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-slate-700 font-semibold mb-1">
-                Cooler / Jar Item To Book *
+                Water Jar / Cooler Item *
               </label>
               <div className="relative">
                 <Package className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -298,18 +372,21 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   id="order-item-type-select"
                   className="w-full bg-white border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
-                  {EQUIPMENT_OPTIONS.map(opt => (
+                  {equipmentOptions.map(opt => (
                     <option key={opt.name} value={opt.name}>
                       {opt.name} ({opt.category})
                     </option>
                   ))}
+                  {!equipmentOptions.some(o => o.name === itemType) && (
+                    <option value={itemType}>{itemType}</option>
+                  )}
                 </select>
               </div>
             </div>
 
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Items To Book (Qty) *
+                Quantity *
               </label>
               <input
                 type="number"
@@ -369,59 +446,155 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   ({quantity} × ₹{rentOrPricePerUnit}) + ₹{depositAmount} deposit
                 </span>
               </div>
-              <div className="text-xl font-bold text-cyan-700">
+              <div className="text-xl font-bold text-cyan-700 font-mono tabular-nums">
                 ₹{totalAmount.toLocaleString('en-IN')}
               </div>
             </div>
           </div>
 
-          {/* Operational Status & Assignment */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Payment Collection Section */}
+          <div className="p-3.5 bg-emerald-50/50 border border-emerald-200/80 rounded-xl space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-950">Payment Collection</span>
+              {balanceDue > 0 ? (
+                <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                  Balance Due: ₹{balanceDue.toLocaleString('en-IN')}
+                </span>
+              ) : (
+                <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
+                  Settled in Full
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5">
+              {(['PAID', 'PARTIAL', 'PENDING'] as const).map((ps) => (
+                <button
+                  key={ps}
+                  type="button"
+                  onClick={() => {
+                    setPaymentStatus(ps);
+                    if (ps === 'PAID') setPartialPaidInput(totalAmount);
+                    else if (ps === 'PENDING') setPartialPaidInput(0);
+                    else if (partialPaidInput <= 0 || partialPaidInput >= totalAmount) {
+                      setPartialPaidInput(Math.round(totalAmount / 2));
+                    }
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                    paymentStatus === ps
+                      ? ps === 'PAID'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                        : ps === 'PARTIAL'
+                        ? 'bg-amber-500 text-white border-amber-500 shadow-2xs'
+                        : 'bg-slate-800 text-white border-slate-800 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {ps === 'PAID' ? 'Paid Full' : ps === 'PARTIAL' ? 'Partial / Advance' : 'Pay Later'}
+                </button>
+              ))}
+            </div>
+
+            {paymentStatus !== 'PENDING' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <div>
+                  <label className="block text-emerald-950 font-semibold mb-1">
+                    Amount Collected (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={totalAmount}
+                    readOnly={paymentStatus === 'PAID'}
+                    id="order-amount-paid-input"
+                    value={effectiveAmountPaid}
+                    onChange={e => setPartialPaidInput(parseFloat(e.target.value) || 0)}
+                    className={`w-full border rounded-lg px-3 py-1.5 font-bold font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      paymentStatus === 'PAID'
+                        ? 'bg-emerald-100/60 border-emerald-300 text-emerald-900'
+                        : 'bg-white border-emerald-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-emerald-950 font-semibold mb-1">
+                    Payment Mode
+                  </label>
+                  <div className="grid grid-cols-3 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMode('CASH')}
+                      className={`py-1.5 px-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                        paymentMode === 'CASH'
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Banknote className="w-3.5 h-3.5 shrink-0" />
+                      <span>Cash</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMode('UPI')}
+                      className={`py-1.5 px-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                        paymentMode === 'UPI'
+                          ? 'bg-sky-600 text-white border-sky-600'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Smartphone className="w-3.5 h-3.5 shrink-0" />
+                      <span>UPI</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMode('BANK_TRANSFER')}
+                      className={`py-1.5 px-1.5 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors ${
+                        paymentMode === 'BANK_TRANSFER'
+                          ? 'bg-indigo-600 text-white border-indigo-600'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Landmark className="w-3.5 h-3.5 shrink-0" />
+                      <span>Bank</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Operational Status & Delivery Date */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Order Status
+                Order Delivery Status
               </label>
               <select
                 value={status}
                 onChange={e => setStatus(e.target.value as any)}
                 id="order-status-select"
-                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
-                <option value="PENDING">Pending Approval</option>
+                <option value="DELIVERED">Delivered Now (Completed)</option>
                 <option value="CONFIRMED">Confirmed / Scheduled</option>
-                <option value="DELIVERED">Delivered / Completed</option>
+                <option value="PENDING">Pending Approval</option>
                 <option value="CANCELLED">Cancelled</option>
               </select>
             </div>
 
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Payment Status
-              </label>
-              <select
-                value={paymentStatus}
-                onChange={e => setPaymentStatus(e.target.value as any)}
-                id="order-payment-status-select"
-                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              >
-                <option value="PAID">Paid in Full</option>
-                <option value="PARTIAL">Partially Paid</option>
-                <option value="PENDING">Pending / On Delivery</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-slate-700 font-semibold mb-1">
-                Event / Delivery Date
+                Function / Delivery Date
               </label>
               <div className="relative">
-                <Calendar className="w-4 h-4 text-slate-400 absolute left-2.5 top-2" />
+                <Calendar className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
                 <input
                   type="date"
                   value={deliveryDate}
                   onChange={e => setDeliveryDate(e.target.value)}
                   id="order-delivery-date-input"
-                  className="w-full bg-white border border-slate-300 rounded-lg pl-8 pr-2 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  className="w-full bg-white border border-slate-300 rounded-lg pl-8 pr-2 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 />
               </div>
             </div>
@@ -431,7 +604,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Assigned Staff / Vehicle
+                Handled By / Staff or Vehicle
               </label>
               <div className="relative">
                 <Truck className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -448,12 +621,12 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 
             <div>
               <label className="block text-slate-700 font-semibold mb-1">
-                Event Notes & Special Instructions
+                Function Notes & Instructions
               </label>
               <input
                 type="text"
                 id="order-notes-input"
-                placeholder="e.g., Wedding banquet, extra glasses required"
+                placeholder="e.g., Wedding banquet, house function, extra glasses"
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -482,7 +655,11 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               isLoading={isSubmitting}
               leftIcon={<Check className="w-4 h-4 stroke-[2.5]" />}
             >
-              {editingOrder ? 'Update Order' : 'Confirm & Book Order'}
+              {editingOrder
+                ? 'Update Order'
+                : status === 'DELIVERED'
+                ? 'Save & Mark Delivered'
+                : 'Confirm & Book Order'}
             </Button>
           </div>
 

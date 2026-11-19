@@ -418,6 +418,27 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
 
                   <button
+                    id="nav-orders"
+                    onClick={() => setActiveTab('orders')}
+                    className={`relative flex items-center gap-1.5 h-8 px-2.5 sm:px-3 text-xs font-bold rounded-lg transition-colors cursor-pointer select-none z-10 ${
+                      activeTab === 'orders'
+                        ? 'text-slate-900'
+                        : 'text-slate-700 hover:text-slate-900'
+                    }`}
+                    title="Orders"
+                  >
+                    {activeTab === 'orders' && (
+                      <motion.div
+                        layoutId="header-active-nav"
+                        className="absolute inset-0 bg-white rounded-lg shadow-2xs -z-10 border border-slate-200/60"
+                        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                      />
+                    )}
+                    <Package className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
+                    <span>{t.nav.orders || 'Orders'}</span>
+                  </button>
+
+                  <button
                     id="nav-customers"
                     onClick={() => setActiveTab('customers')}
                     className={`relative flex items-center gap-1.5 h-8 px-2.5 sm:px-3 text-xs font-bold rounded-lg transition-colors cursor-pointer select-none z-10 ${
@@ -1177,8 +1198,51 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Mobile Navigation Bar for Owner (Horizontal scrollable with no-scrollbar) */}
-        {userSession?.role !== 'WORKER' && (
+        {/* Mobile Navigation Bar for Worker & Owner */}
+        {userSession?.role === 'WORKER' ? (
+          <div id="mobile-worker-nav-bar" className="md:hidden pb-2.5 pt-0.5 overflow-x-auto no-scrollbar -mx-3 px-3">
+            <div className="flex items-center gap-1.5 min-w-max">
+              <button
+                id="mobile-nav-driver-run-pill"
+                onClick={() => setActiveTab('driver_run')}
+                className={`flex items-center gap-1.5 h-7.5 px-2.5 text-xs rounded-lg transition-all cursor-pointer ${
+                  activeTab === 'driver_run'
+                    ? 'bg-sky-600 text-white font-bold shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium'
+                }`}
+              >
+                <Truck className="w-3.5 h-3.5" />
+                <span>{t.nav.driverRun || 'Delivery Run'}</span>
+              </button>
+
+              <button
+                id="mobile-nav-orders-worker"
+                onClick={() => setActiveTab('orders')}
+                className={`flex items-center gap-1.5 h-7.5 px-2.5 text-xs rounded-lg transition-all cursor-pointer ${
+                  activeTab === 'orders'
+                    ? 'bg-sky-600 text-white font-bold shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium'
+                }`}
+              >
+                <Package className="w-3.5 h-3.5" />
+                <span>{t.nav.orders || 'Orders'}</span>
+              </button>
+
+              <button
+                id="mobile-nav-customers-pill"
+                onClick={() => setActiveTab('customers')}
+                className={`flex items-center gap-1.5 h-7.5 px-2.5 text-xs rounded-lg transition-all cursor-pointer ${
+                  activeTab === 'customers'
+                    ? 'bg-sky-600 text-white font-bold shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>{t.nav.customers || 'Customers'}</span>
+              </button>
+            </div>
+          </div>
+        ) : (
           <div id="mobile-owner-nav-bar" className="md:hidden pb-2.5 pt-0.5 overflow-x-auto no-scrollbar -mx-3 px-3">
             <div className="flex items-center gap-1.5 min-w-max">
               <button

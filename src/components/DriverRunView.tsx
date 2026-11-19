@@ -17,7 +17,8 @@ import {
   ArrowRight,
   ShieldCheck,
   ChevronRight,
-  RefreshCw
+  RefreshCw,
+  Package
 } from 'lucide-react';
 import { 
   BusinessAccount, 
@@ -51,6 +52,9 @@ interface DriverRunViewProps {
   }) => Promise<void>;
   onOpenSchedulesModal: () => void;
   onOpenExpensesModal: () => void;
+  onOpenNewOrder?: () => void;
+  onOpenOrdersTab?: () => void;
+  activeOrdersCount?: number;
   onRefreshData?: () => void;
 }
 
@@ -65,6 +69,9 @@ export const DriverRunView: React.FC<DriverRunViewProps> = ({
   onRecordQuickDelivery,
   onOpenSchedulesModal,
   onOpenExpensesModal,
+  onOpenNewOrder,
+  onOpenOrdersTab,
+  activeOrdersCount = 0,
   onRefreshData
 }) => {
   const { t, isGujarati } = useLanguage();
@@ -186,6 +193,35 @@ export const DriverRunView: React.FC<DriverRunViewProps> = ({
               <Calendar className="w-4 h-4 text-sky-400" />
               <span>{t.worker.schedules}</span>
             </button>
+
+            {onOpenNewOrder && (
+              <button
+                type="button"
+                onClick={onOpenNewOrder}
+                id="driver-run-bulk-order-btn"
+                className="py-2.5 px-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Bulk Order</span>
+              </button>
+            )}
+
+            {onOpenOrdersTab && (
+              <button
+                type="button"
+                onClick={onOpenOrdersTab}
+                id="driver-run-orders-tab-btn"
+                className="py-2.5 px-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Package className="w-4 h-4 text-cyan-400" />
+                <span>Orders</span>
+                {activeOrdersCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-cyan-500 text-slate-950 text-[10px] font-extrabold">
+                    {activeOrdersCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {activeTrip ? (
               <button

@@ -55,13 +55,18 @@ export interface OrderBooking {
   depositAmount: number; // Amount deposit if any
   rentOrPricePerUnit: number; // Price or rental rate per unit
   totalAmount: number; // Total billing amount
+  amountPaid?: number; // Amount collected towards this order so far
+  paymentMode?: 'CASH' | 'UPI' | 'BANK_TRANSFER';
   paymentStatus: 'PAID' | 'PARTIAL' | 'PENDING';
   status: 'PENDING' | 'CONFIRMED' | 'DELIVERED' | 'CANCELLED';
   bookingDate: number;
+  deliveredAt?: number;
   deliveryDate?: string;
   returnDate?: string;
   notes?: string;
   assignedDriver?: string;
+  createdBy?: string;
+  collectedBy?: string;
 }
 
 export interface TransactionRecord {

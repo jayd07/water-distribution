@@ -516,6 +516,39 @@ export function updateOrderLocal(orderId: string, updates: Partial<OrderBooking>
   return store.orders[idx];
 }
 
+export function recordOrderTransactionLocal(
+  order: OrderBooking,
+  amountPaidNow: number,
+  paymentMode: 'CASH' | 'UPI' | 'BANK_TRANSFER',
+  businessId?: string,
+  collectedBy?: string
+): string {
+  const store = getLocalStore(businessId);
+  const txId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `tx_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const now = Date.now();
+  const safeAmount = Math.max(0, Math.round((amountPaidNow + Number.EPSILON) * 100) / 100);
+
+  if (!Array.isArray(store.transactions)) {
+    store.transactions = [];
+  }
+
+  store.transactions.unshift({
+    id: txId,
+    customerId: order.customerId || order.id,
+    customerName: order.customerName,
+    type: 'REFILL_PAYMENT',
+    amount: safeAmount,
+    paymentMode,
+    timestamp: now,
+    notes: `Bulk/Event Order #${order.id.toUpperCase()} (${order.quantity}× ${order.itemType})${collectedBy ? ` • By ${collectedBy}` : ''}`
+  });
+
+  saveLocalStore(store, businessId);
+  return txId;
+}
+
 export function deleteOrderLocal(orderId: string, businessId?: string): boolean {
   const store = getLocalStore(businessId);
   if (!Array.isArray(store.orders)) return false;
